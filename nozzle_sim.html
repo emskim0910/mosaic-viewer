@@ -149,6 +149,22 @@
   .btn:hover  { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.32); }
   .btn:active { transform: translateY(1px); }
 
+  .btn.nz-dl {
+    padding: 4px 9px; font-size: 10px; font-weight: 700; letter-spacing: 1.1px;
+    text-transform: uppercase;
+    background: rgba(109,255,177,0.10); border-color: rgba(109,255,177,0.45); color: #6dffb1;
+  }
+  .btn.nz-dl:hover { background: rgba(109,255,177,0.18); border-color: rgba(109,255,177,0.75); }
+  .btn.nz-dl.saved { background: rgba(109,255,177,0.20); color: #fff; }
+
+  .nz-dl-hint {
+    font-size: 10.5px; color: var(--text-dim); line-height: 1.5;
+    margin: 8px 0 0; padding: 8px 10px;
+    background: rgba(109,255,177,0.04); border: 1px solid rgba(109,255,177,0.18);
+    border-left: 3px solid rgba(109,255,177,0.55);
+  }
+  .nz-dl-hint strong { color: #6dffb1; }
+
   .nz-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
   .nz-actions .btn { font-size: 11px; padding: 9px 10px; font-weight: 600; letter-spacing: 0.3px; }
   .nz-actions .btn.primary {
@@ -252,6 +268,7 @@
       <div class="nz-panel-head">
         <span class="lbl">01</span>
         <span class="ttl">Design Parameters</span>
+        <button class="btn nz-dl" id="nzDownload" title="Save this simulation as a local HTML file">⤓ Save&nbsp;HTML</button>
       </div>
       <div class="nz-panel-body">
         <div class="nz-controls">
@@ -298,6 +315,10 @@
         <div class="nz-opt-status" id="nzOptStatus">
           Press <em>Optimize Shape</em> to search ε &amp; L/L₁₅° for max thrust at current Pₐ.
         </div>
+        <p class="nz-dl-hint">
+          Click <strong>⤓ Save HTML</strong> (top-right) to download this entire simulation as a
+          single self-contained file. Works offline — no server or internet required.
+        </p>
       </div>
     </div>
 
@@ -906,6 +927,44 @@
   document.getElementById('nzReset').addEventListener('click', resetDesign);
   window.addEventListener('keydown', e => { if (e.key === 'Escape') stopOptimize(); });
   window.addEventListener('resize', () => drawAll());
+
+  // -------------------- Download self --------------------
+  function triggerDownload(content, filename) {
+    const blob = new Blob([content], { type: 'text/html;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = filename; a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+  async function downloadSelf() {
+    const btn = document.getElementById('nzDownload');
+    const original = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = '… saving'; }
+    let content = null;
+    // 1) Try fetching the actual source file (preserves exact bytes when served via HTTP).
+    try {
+      const r = await fetch(window.location.href, { cache: 'no-store' });
+      if (r.ok) content = await r.text();
+    } catch (_) { /* fall through */ }
+    // 2) Fallback: serialize the live DOM (works under file://).
+    if (!content) {
+      const doctype = '<!doctype html>\n';
+      content = doctype + document.documentElement.outerHTML;
+    }
+    triggerDownload(content, 'nozzle_sim.html');
+    if (btn) {
+      btn.textContent = '✓ Saved';
+      btn.classList.add('saved');
+      setTimeout(() => {
+        btn.textContent = original; btn.classList.remove('saved'); btn.disabled = false;
+      }, 1600);
+    }
+  }
+  const dlBtn = document.getElementById('nzDownload');
+  if (dlBtn) dlBtn.addEventListener('click', downloadSelf);
 
   // -------------------- Init & render loop --------------------
   state.particles = buildParticles(120);
