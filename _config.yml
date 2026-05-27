@@ -1,0 +1,13 @@
+# GitHub Pages build configuration for the MOSAIC viewer.
+#
+# The standalone nozzle flow simulation is intentionally NOT served from the
+# Pages site. It lives in the repository as a downloadable artifact only, so
+# the live website at https://emskim0910.github.io/mosaic-viewer/ contains
+# nothing other than the MOSAIC CAD viewer (index.html).
+#
+# To grab the standalone simulation, download nozzle_sim.html from the repo
+# itself (e.g. the raw URL on GitHub) and open it locally.
+
+exclude:
+  - nozzle_sim.html
+  - README.md
