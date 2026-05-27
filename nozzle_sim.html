@@ -1,0 +1,925 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>MOSAIC · Nozzle Flow Simulation</title>
+<style>
+  :root {
+    --bg-0: #000000;
+    --bg-1: #03050a;
+    --panel: rgba(6, 8, 13, 0.94);
+    --border: rgba(255, 255, 255, 0.22);
+    --text: #ffffff;
+    --text-dim: #888888;
+    --accent: #ffffff;
+    --good: #6dffb1;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: #03050a;
+    color: var(--text);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+  canvas { display: block; outline: none; }
+
+  /* ============ App grid ============ */
+  .app {
+    position: fixed; inset: 16px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(360px, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 1100px) {
+    .app { grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.85fr); }
+  }
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: 1fr 1.1fr; inset: 8px; gap: 8px; }
+  }
+
+  .nz-panel {
+    background-color: var(--panel);
+    background-image:
+      linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
+    background-size: 22px 22px;
+    backdrop-filter: blur(12px) saturate(120%);
+    -webkit-backdrop-filter: blur(12px) saturate(120%);
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 10px 30px rgba(0,0,0,0.5);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .nz-panel-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 14px; border-bottom: 1px solid rgba(255,255,255,0.10);
+    flex-shrink: 0;
+  }
+  .nz-panel-head .lbl {
+    font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--text-dim);
+  }
+  .nz-panel-head .ttl {
+    font-size: 12px; color: var(--text); font-weight: 600; letter-spacing: 0.2px; flex: 1;
+  }
+  .nz-panel-body {
+    flex: 1; min-height: 0; padding: 12px;
+    overflow-y: auto; scrollbar-width: none;
+  }
+  .nz-panel-body::-webkit-scrollbar { display: none; }
+
+  /* ============ Visualization panel ============ */
+  .nz-viz { padding: 0; overflow: hidden; position: relative; }
+  .nz-viz canvas#nzCanvas {
+    position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+  }
+  .nz-hud {
+    position: absolute; left: 14px; top: 12px; right: 14px;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+    font-size: 9.5px; letter-spacing: 1.4px; text-transform: uppercase;
+    color: var(--text-dim); pointer-events: none;
+  }
+  .nz-hud .ttl-strong { color: #fff; font-weight: 700; letter-spacing: 1.6px; }
+  .nz-hud .regime {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.18);
+    padding: 4px 9px; color: #fff; font-weight: 700; letter-spacing: 1.4px;
+  }
+  .nz-hud .regime.under { color: #ffd166; border-color: rgba(255,209,102,0.5); background: rgba(255,209,102,0.07); }
+  .nz-hud .regime.over  { color: #ff8a65; border-color: rgba(255,138,101,0.5); background: rgba(255,138,101,0.07); }
+  .nz-hud .regime.ideal { color: #6dffb1; border-color: rgba(109,255,177,0.5); background: rgba(109,255,177,0.08); }
+  .nz-hud .regime.choked-only { color: #9fc1ff; border-color: rgba(159,193,255,0.4); }
+  .nz-cb {
+    position: absolute; right: 14px; bottom: 16px;
+    display: flex; align-items: center; gap: 8px; pointer-events: none;
+  }
+  .nz-cb .cb-labels {
+    display: flex; flex-direction: column; justify-content: space-between;
+    height: 160px; font-size: 9.5px; color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .nz-cb canvas {
+    width: 12px; height: 160px;
+    border: 1px solid rgba(255,255,255,0.22);
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+  }
+  .nz-cb-title {
+    position: absolute; right: 14px; bottom: 184px; font-size: 9px;
+    letter-spacing: 1.4px; text-transform: uppercase; color: var(--text-dim);
+  }
+  .nz-axis-tag {
+    position: absolute; left: 18px; bottom: 14px;
+    font-size: 9.5px; letter-spacing: 1.4px; text-transform: uppercase;
+    color: var(--text-dim); pointer-events: none;
+  }
+
+  /* ============ Right column ============ */
+  .nz-right { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .nz-right .nz-panel.charts { flex: 1; min-height: 0; }
+
+  .nz-controls { display: grid; gap: 12px; }
+  .nz-ctl { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; align-items: center; }
+  .nz-ctl label { font-size: 11px; color: var(--text-dim); letter-spacing: 0.2px; }
+  .nz-ctl .val { font-size: 11px; color: var(--text); font-variant-numeric: tabular-nums; font-weight: 600; }
+  .nz-ctl .val .u { color: var(--text-dim); margin-left: 3px; font-weight: 400; }
+  .nz-ctl input[type=range] {
+    grid-column: 1 / -1; width: 100%;
+    -webkit-appearance: none; appearance: none;
+    height: 3px; border-radius: 2px;
+    background: linear-gradient(90deg, #ffffff, #888);
+    opacity: 0.85; outline: none; cursor: pointer; margin: 2px 0 0;
+  }
+  .nz-ctl input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: #000; box-shadow: 0 0 0 2px #fff; cursor: pointer;
+  }
+  .nz-ctl input[type=range]::-moz-range-thumb {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: #fff; border: none; box-shadow: 0 0 0 2px #fff;
+  }
+
+  .btn {
+    appearance: none; border: 1px solid var(--border); background: rgba(255,255,255,0.03);
+    color: var(--text); font: inherit; font-size: 12px; padding: 8px 10px;
+    border-radius: 2px; cursor: pointer;
+    transition: background 120ms, border-color 120ms, transform 80ms;
+  }
+  .btn:hover  { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.32); }
+  .btn:active { transform: translateY(1px); }
+
+  .nz-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+  .nz-actions .btn { font-size: 11px; padding: 9px 10px; font-weight: 600; letter-spacing: 0.3px; }
+  .nz-actions .btn.primary {
+    background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.45);
+    color: #fff;
+  }
+  .nz-actions .btn.primary:hover { background: rgba(255,255,255,0.22); }
+  .nz-actions .btn.primary.running {
+    background: rgba(109,255,177,0.18); border-color: rgba(109,255,177,0.5); color: #6dffb1;
+  }
+
+  .nz-opt-status {
+    font-size: 10px; color: var(--text-dim); letter-spacing: 0.3px;
+    border-top: 1px solid rgba(255,255,255,0.10);
+    padding-top: 10px; margin-top: 10px;
+    min-height: 14px; font-variant-numeric: tabular-nums;
+  }
+  .nz-opt-status.active { color: #6dffb1; }
+  .nz-opt-status.done   { color: #fff; }
+
+  .nz-charts {
+    display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+    gap: 10px; height: 100%; min-height: 240px;
+  }
+  .nz-chart {
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.02);
+    min-height: 0;
+  }
+  .nz-chart canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+  }
+  .nz-chart .lab {
+    position: absolute; top: 5px; left: 8px;
+    font-size: 9px; letter-spacing: 1.4px; text-transform: uppercase;
+    color: var(--text-dim);
+    background: rgba(0,0,0,0.65); padding: 2px 5px; border: 1px solid rgba(255,255,255,0.10);
+    z-index: 2;
+  }
+  .nz-chart .lab strong {
+    color: #fff; font-weight: 700; letter-spacing: 0.2px; text-transform: none;
+    margin-left: 6px; font-size: 11px; font-variant-numeric: tabular-nums;
+  }
+
+  .nz-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .nz-stat {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.10);
+    padding: 8px 10px;
+  }
+  .nz-stat .k {
+    font-size: 8.5px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--text-dim);
+  }
+  .nz-stat .v {
+    font-size: 16px; color: #fff; font-variant-numeric: tabular-nums;
+    font-weight: 700; margin-top: 3px;
+  }
+  .nz-stat .v .u {
+    font-size: 9.5px; color: var(--text-dim); margin-left: 4px;
+    font-weight: 400; letter-spacing: 0.4px;
+  }
+  @media (max-width: 720px) {
+    .nz-stats { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ============ Left: Visualization ============ -->
+  <div class="nz-panel nz-viz" id="nzViz">
+    <canvas id="nzCanvas"></canvas>
+    <div class="nz-hud">
+      <div>
+        <span class="ttl-strong">MOSAIC · Isentropic Quasi-1D Flow</span>
+        &nbsp;·&nbsp; Converging–Diverging Nozzle
+        &nbsp;·&nbsp; N₂ &nbsp; γ = <span id="hudGamma">1.40</span>
+      </div>
+      <div class="regime ideal" id="nzRegime">DESIGN</div>
+    </div>
+    <div class="nz-cb-title">MACH</div>
+    <div class="nz-cb">
+      <div class="cb-labels">
+        <span id="cbHi">4.0</span>
+        <span>3.0</span>
+        <span>2.0</span>
+        <span>1.0</span>
+        <span id="cbLo">0.0</span>
+      </div>
+      <canvas id="nzColorbar" width="12" height="160"></canvas>
+    </div>
+    <div class="nz-axis-tag">axial position →</div>
+  </div>
+
+  <!-- ============ Right column ============ -->
+  <div class="nz-right">
+
+    <div class="nz-panel">
+      <div class="nz-panel-head">
+        <span class="lbl">01</span>
+        <span class="ttl">Design Parameters</span>
+      </div>
+      <div class="nz-panel-body">
+        <div class="nz-controls">
+          <div class="nz-ctl">
+            <label>Chamber pressure&nbsp;&nbsp;P₀</label>
+            <span class="val"><span id="vP0">0.345</span><span class="u">MPa</span></span>
+            <input type="range" id="ctlP0" min="0.05" max="3.00" step="0.005" value="0.345">
+          </div>
+          <div class="nz-ctl">
+            <label>Chamber temp&nbsp;&nbsp;T₀</label>
+            <span class="val"><span id="vT0">293</span><span class="u">K</span></span>
+            <input type="range" id="ctlT0" min="200" max="500" step="1" value="293">
+          </div>
+          <div class="nz-ctl">
+            <label>Throat radius&nbsp;&nbsp;r*</label>
+            <span class="val"><span id="vRt">0.30</span><span class="u">mm</span></span>
+            <input type="range" id="ctlRt" min="0.15" max="1.00" step="0.01" value="0.30">
+          </div>
+          <div class="nz-ctl">
+            <label>Area ratio&nbsp;&nbsp;ε = Aₑ/A*</label>
+            <span class="val"><span id="vEps">4.00</span></span>
+            <input type="range" id="ctlEps" min="1.50" max="20.00" step="0.05" value="4.00">
+          </div>
+          <div class="nz-ctl">
+            <label>Back pressure&nbsp;&nbsp;Pₐ</label>
+            <span class="val"><span id="vPa">0.000</span><span class="u">MPa</span></span>
+            <input type="range" id="ctlPa" min="0.000" max="0.150" step="0.001" value="0.000">
+          </div>
+          <div class="nz-ctl">
+            <label>Bell length fraction&nbsp;&nbsp;L/L₁₅°</label>
+            <span class="val"><span id="vLf">0.80</span></span>
+            <input type="range" id="ctlLf" min="0.55" max="1.00" step="0.01" value="0.80">
+          </div>
+          <div class="nz-ctl">
+            <label>Specific heat ratio&nbsp;&nbsp;γ</label>
+            <span class="val"><span id="vGm">1.40</span></span>
+            <input type="range" id="ctlGm" min="1.20" max="1.67" step="0.01" value="1.40">
+          </div>
+        </div>
+        <div class="nz-actions">
+          <button class="btn primary" id="nzOptimize">⚡ Optimize Shape</button>
+          <button class="btn" id="nzReset">Reset Design</button>
+        </div>
+        <div class="nz-opt-status" id="nzOptStatus">
+          Press <em>Optimize Shape</em> to search ε &amp; L/L₁₅° for max thrust at current Pₐ.
+        </div>
+      </div>
+    </div>
+
+    <div class="nz-panel charts">
+      <div class="nz-panel-head">
+        <span class="lbl">02</span>
+        <span class="ttl">Axial Profiles · Isentropic Solution</span>
+      </div>
+      <div class="nz-panel-body" style="padding: 10px;">
+        <div class="nz-charts">
+          <div class="nz-chart"><div class="lab">MACH &nbsp;M(x) &nbsp;Mₑ <strong id="lblMe">—</strong></div><canvas id="chM"></canvas></div>
+          <div class="nz-chart"><div class="lab">PRESSURE &nbsp;P/P₀ &nbsp;Pₑ/P₀ <strong id="lblPe">—</strong></div><canvas id="chP"></canvas></div>
+          <div class="nz-chart"><div class="lab">TEMP &nbsp;T/T₀ &nbsp;Tₑ/T₀ <strong id="lblTe">—</strong></div><canvas id="chT"></canvas></div>
+          <div class="nz-chart"><div class="lab">DENSITY &nbsp;ρ/ρ₀ &nbsp;ρₑ/ρ₀ <strong id="lblRe">—</strong></div><canvas id="chR"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nz-panel">
+      <div class="nz-panel-head">
+        <span class="lbl">03</span>
+        <span class="ttl">Steady-State Performance</span>
+      </div>
+      <div class="nz-panel-body" style="padding: 10px;">
+        <div class="nz-stats">
+          <div class="nz-stat"><div class="k">Thrust F</div><div class="v"><span id="sF">—</span><span class="u">mN</span></div></div>
+          <div class="nz-stat"><div class="k">Isp</div><div class="v"><span id="sIsp">—</span><span class="u">s</span></div></div>
+          <div class="nz-stat"><div class="k">ṁ</div><div class="v"><span id="sMdot">—</span><span class="u">mg/s</span></div></div>
+          <div class="nz-stat"><div class="k">Exit Mach</div><div class="v"><span id="sMe">—</span></div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ============================================================
+// ADVANCED ISENTROPIC NOZZLE FLOW SIMULATION
+// Standalone — no external dependencies
+// Quasi-1D compressible flow with bell-contour optimization
+// ============================================================
+(() => {
+  const canvas    = document.getElementById('nzCanvas');
+  const cbCanvas  = document.getElementById('nzColorbar');
+  const charts    = {
+    M: document.getElementById('chM'),
+    P: document.getElementById('chP'),
+    T: document.getElementById('chT'),
+    R: document.getElementById('chR'),
+  };
+  const ctx       = canvas.getContext('2d', { alpha: true });
+  const chartCtx  = {
+    M: charts.M.getContext('2d'),
+    P: charts.P.getContext('2d'),
+    T: charts.T.getContext('2d'),
+    R: charts.R.getContext('2d'),
+  };
+  const cbCtx     = cbCanvas.getContext('2d');
+
+  const ctl = {
+    P0:  document.getElementById('ctlP0'),
+    T0:  document.getElementById('ctlT0'),
+    Rt:  document.getElementById('ctlRt'),
+    Eps: document.getElementById('ctlEps'),
+    Pa:  document.getElementById('ctlPa'),
+    Lf:  document.getElementById('ctlLf'),
+    Gm:  document.getElementById('ctlGm'),
+  };
+  const lbl = {
+    P0: document.getElementById('vP0'), T0: document.getElementById('vT0'),
+    Rt: document.getElementById('vRt'), Eps: document.getElementById('vEps'),
+    Pa: document.getElementById('vPa'), Lf: document.getElementById('vLf'),
+    Gm: document.getElementById('vGm'),
+    hudGamma: document.getElementById('hudGamma'),
+    regime: document.getElementById('nzRegime'),
+    cbHi: document.getElementById('cbHi'),
+    optStatus: document.getElementById('nzOptStatus'),
+    Me: document.getElementById('lblMe'),
+    Pe: document.getElementById('lblPe'),
+    Te: document.getElementById('lblTe'),
+    Re: document.getElementById('lblRe'),
+    sF: document.getElementById('sF'),
+    sIsp: document.getElementById('sIsp'),
+    sMdot: document.getElementById('sMdot'),
+    sMe: document.getElementById('sMe'),
+  };
+
+  const state = {
+    gamma: 1.4,
+    R_N2: 296.8,
+    P0: 0.345e6,
+    T0: 293,
+    rt_mm: 0.30,
+    eps:  4.00,
+    Pa:   0.0,
+    Lf:   0.80,
+    N: 240,
+    prof: null,
+    sol:  null,
+    perf: null,
+    particles: [],
+    active: true,
+    optimizing: false,
+    optAnim: null,
+  };
+
+  // -------------------- Physics --------------------
+  function machFromAreaRatio(AR, supersonic, gamma) {
+    if (AR <= 1.0000001) return 1.0;
+    const exp = (gamma + 1) / (2 * (gamma - 1));
+    const k = 2 / (gamma + 1);
+    const g1 = (gamma - 1) / 2;
+    function f(M) { return (1 / M) * Math.pow(k * (1 + g1 * M * M), exp); }
+    let lo, hi;
+    if (supersonic) { lo = 1.000001; hi = 50.0; }
+    else { lo = 1e-4; hi = 0.999999; }
+    for (let i = 0; i < 90; i++) {
+      const mid = 0.5 * (lo + hi);
+      const fm = f(mid) - AR;
+      if (supersonic) { if (fm < 0) lo = mid; else hi = mid; }
+      else            { if (fm > 0) lo = mid; else hi = mid; }
+      if (Math.abs(hi - lo) < 1e-9) break;
+    }
+    return 0.5 * (lo + hi);
+  }
+
+  function buildProfile(rt_mm, eps, Lf, N) {
+    const rt = rt_mm;
+    const re = rt * Math.sqrt(eps);
+    const ri = Math.max(2.0 * rt, 1.4 * rt + 0.6);
+    const L_in = 2.4 * rt;
+    const L15 = (re - rt) / Math.tan(15 * Math.PI / 180);
+    const L_div = Math.max(0.3, Lf * L15);
+    const L = L_in + L_div;
+    const xs = new Float64Array(N);
+    const rs = new Float64Array(N);
+    const xthroat = L_in;
+    const p = 1.55;
+    for (let i = 0; i < N; i++) {
+      const x = (i / (N - 1)) * L;
+      xs[i] = x;
+      if (x <= L_in) {
+        const u = x / L_in;
+        const s = 0.5 * (1 - Math.cos(Math.PI * u));
+        rs[i] = ri + (rt - ri) * s;
+      } else {
+        let t = (x - L_in) / L_div;
+        if (t < 0) t = 0; else if (t > 1) t = 1;
+        rs[i] = rt + (re - rt) * (1 - Math.pow(1 - t, p));
+      }
+    }
+    return { xs, rs, xthroat, L, L_in, L_div, re, rt, ri, eps };
+  }
+
+  function solveFlow(prof, gamma) {
+    const xs = prof.xs, rs = prof.rs, xthroat = prof.xthroat, throatR = prof.rt;
+    const N = xs.length;
+    const M = new Float64Array(N), P = new Float64Array(N);
+    const T = new Float64Array(N), D = new Float64Array(N);
+    const Astar = Math.PI * throatR * throatR;
+    for (let i = 0; i < N; i++) {
+      const A = Math.PI * rs[i] * rs[i];
+      const AR = A / Astar;
+      const supersonic = xs[i] > xthroat + 1e-9;
+      const m = machFromAreaRatio(AR, supersonic, gamma);
+      M[i] = m;
+      const factor = 1 + (gamma - 1) / 2 * m * m;
+      P[i] = Math.pow(factor, -gamma / (gamma - 1));
+      T[i] = 1 / factor;
+      D[i] = Math.pow(factor, -1 / (gamma - 1));
+    }
+    return { M, P, T, D };
+  }
+
+  function performanceOf(prof, sol, P0_Pa, T0_K, Pa_Pa, gamma, R) {
+    const Astar = Math.PI * Math.pow(prof.rt * 1e-3, 2);
+    const Ae    = Math.PI * Math.pow(prof.re * 1e-3, 2);
+    const tFac  = Math.pow(2 / (gamma + 1), (gamma + 1) / (2 * (gamma - 1)));
+    const mdot  = P0_Pa * Astar / Math.sqrt(T0_K) * Math.sqrt(gamma / R) * tFac;
+    const Me    = sol.M[sol.M.length - 1];
+    const Te    = T0_K * sol.T[sol.T.length - 1];
+    const Pe    = P0_Pa * sol.P[sol.P.length - 1];
+    const Ve    = Me * Math.sqrt(gamma * R * Te);
+    const F     = mdot * Ve + (Pe - Pa_Pa) * Ae;
+    const Isp   = F / (mdot * 9.80665);
+    return { mdot, Me, Te, Pe, Ve, Ae, F, Isp };
+  }
+
+  function classifyRegime(Pe, Pa) {
+    if (Pa < 1) return { tag: 'choked-only', label: 'VACUUM · CHOKED' };
+    const r = Pe / Pa;
+    if (r > 1.05) return { tag: 'under', label: 'UNDER-EXPANDED' };
+    if (r < 0.95) return { tag: 'over',  label: 'OVER-EXPANDED' };
+    return { tag: 'ideal', label: 'IDEAL EXPANSION' };
+  }
+
+  // -------------------- Color map (plasma-jet) --------------------
+  const CMAP_STOPS = [
+    { t: 0.00, c: [ 30,  10,  80] },
+    { t: 0.15, c: [ 70,  20, 160] },
+    { t: 0.30, c: [ 25, 110, 220] },
+    { t: 0.45, c: [ 30, 200, 200] },
+    { t: 0.60, c: [120, 230,  90] },
+    { t: 0.75, c: [255, 215,  60] },
+    { t: 0.88, c: [255, 130,  40] },
+    { t: 1.00, c: [255,  50,  60] },
+  ];
+  function turbo(t) {
+    if (!Number.isFinite(t)) return [60, 60, 60];
+    t = Math.max(0, Math.min(1, t));
+    for (let i = 1; i < CMAP_STOPS.length; i++) {
+      const b = CMAP_STOPS[i], a = CMAP_STOPS[i - 1];
+      if (t <= b.t) {
+        const u = (t - a.t) / Math.max(1e-9, b.t - a.t);
+        return [
+          (a.c[0] + (b.c[0] - a.c[0]) * u) | 0,
+          (a.c[1] + (b.c[1] - a.c[1]) * u) | 0,
+          (a.c[2] + (b.c[2] - a.c[2]) * u) | 0,
+        ];
+      }
+    }
+    return CMAP_STOPS[CMAP_STOPS.length - 1].c.slice();
+  }
+
+  function drawColorbar() {
+    const w = cbCanvas.width, h = cbCanvas.height;
+    const img = cbCtx.createImageData(w, h);
+    for (let y = 0; y < h; y++) {
+      const t = 1 - y / (h - 1);
+      const [r, g, b] = turbo(t);
+      for (let x = 0; x < w; x++) {
+        const i = 4 * (y * w + x);
+        img.data[i] = r; img.data[i+1] = g; img.data[i+2] = b; img.data[i+3] = 235;
+      }
+    }
+    cbCtx.putImageData(img, 0, 0);
+  }
+
+  // -------------------- Layout helpers --------------------
+  function fitCanvas(c) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const rect = c.getBoundingClientRect();
+    const w = Math.max(2, Math.round((rect.width  || 0) * dpr));
+    const h = Math.max(2, Math.round((rect.height || 0) * dpr));
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    return { w, h, dpr };
+  }
+
+  function buildParticles(n) {
+    const list = [];
+    for (let i = 0; i < n; i++) list.push({ s: Math.random(), y: (Math.random() - 0.5) * 0.92 });
+    return list;
+  }
+
+  // -------------------- Visualization --------------------
+  function drawNozzle() {
+    const { w, h } = fitCanvas(canvas);
+    const prof = state.prof, sol = state.sol;
+    ctx.clearRect(0, 0, w, h);
+    if (!Number.isFinite(w) || !Number.isFinite(h) || w < 4 || h < 4) return;
+    if (!prof || !sol) return;
+
+    const pad = { l: 90 * (w / 1000), r: 110 * (w / 1000), t: 60, b: 80 };
+    const plotW = w - pad.l - pad.r;
+    const plotH = h - pad.t - pad.b;
+    const cy = pad.t + plotH * 0.5;
+    let rmax = -Infinity;
+    for (let i = 0; i < prof.rs.length; i++) { if (prof.rs[i] > rmax) rmax = prof.rs[i]; }
+    if (!Number.isFinite(rmax) || rmax <= 0) return;
+    const sx = plotW / prof.L;
+    const sy = (plotH * 0.45) / rmax;
+
+    // axis line
+    ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(pad.l, cy); ctx.lineTo(pad.l + plotW, cy); ctx.stroke();
+    ctx.setLineDash([]);
+
+    const mMax = Math.max(3.2, Math.ceil(sol.M[sol.M.length - 1] * 1.05));
+    if (lbl.cbHi) lbl.cbHi.textContent = mMax.toFixed(1);
+
+    const xpx = new Float64Array(prof.xs.length);
+    const rpx = new Float64Array(prof.xs.length);
+    for (let i = 0; i < prof.xs.length; i++) {
+      xpx[i] = pad.l + prof.xs[i] * sx;
+      rpx[i] = prof.rs[i] * sy;
+    }
+
+    // Plume halo beyond exit
+    const exitX = xpx[xpx.length - 1];
+    const exitR = rpx[rpx.length - 1];
+    const Me = sol.M[sol.M.length - 1];
+    const plumeLen = Math.min(plotW * 0.32, 220);
+    if (Number.isFinite(exitX) && Number.isFinite(exitR) && Number.isFinite(plumeLen)) {
+      const plumeGrad = ctx.createLinearGradient(exitX, cy, exitX + plumeLen, cy);
+      const [pr, pg, pb] = turbo(Math.min(1, Me / mMax));
+      plumeGrad.addColorStop(0,   `rgba(${pr},${pg},${pb},0.55)`);
+      plumeGrad.addColorStop(0.4, `rgba(${pr},${pg},${pb},0.18)`);
+      plumeGrad.addColorStop(1,   `rgba(${pr},${pg},${pb},0.0)`);
+      ctx.fillStyle = plumeGrad;
+      ctx.beginPath();
+      ctx.moveTo(exitX, cy - exitR);
+      ctx.lineTo(exitX + plumeLen, cy - exitR * 1.6);
+      ctx.lineTo(exitX + plumeLen, cy + exitR * 1.6);
+      ctx.lineTo(exitX, cy + exitR);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Build nozzle interior clip
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(xpx[0], cy - rpx[0]);
+    for (let i = 1; i < xpx.length; i++) ctx.lineTo(xpx[i], cy - rpx[i]);
+    for (let i = xpx.length - 1; i >= 0; i--) ctx.lineTo(xpx[i], cy + rpx[i]);
+    ctx.closePath();
+    ctx.clip();
+
+    // Mach strips
+    const stripPx = 2;
+    for (let i = 0; i < xpx.length - 1; i++) {
+      const x0 = xpx[i], x1 = xpx[i+1];
+      const stripW = Math.max(stripPx, x1 - x0);
+      const m = sol.M[i];
+      const [r, g, b] = turbo(Math.min(1, m / mMax));
+      if (!Number.isFinite(rpx[i]) || rpx[i] <= 0) continue;
+      const grad = ctx.createLinearGradient(x0, cy - rpx[i], x0, cy + rpx[i]);
+      const rDim = Math.min(255, (r * 0.55) | 0);
+      const gDim = Math.min(255, (g * 0.55) | 0);
+      const bDim = Math.min(255, (b * 0.65) | 0);
+      grad.addColorStop(0,    `rgba(${rDim},${gDim},${bDim},1)`);
+      grad.addColorStop(0.5,  `rgba(${r},${g},${b},1)`);
+      grad.addColorStop(1,    `rgba(${rDim},${gDim},${bDim},1)`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(x0 - 0.5, cy - rpx[i] - 1, stripW + 1, 2 * rpx[i] + 2);
+    }
+
+    // Iso-Mach contour lines
+    ctx.lineWidth = 1.0;
+    for (let mk = 1; mk <= Math.floor(mMax); mk++) {
+      for (let i = 1; i < sol.M.length; i++) {
+        if ((sol.M[i-1] - mk) * (sol.M[i] - mk) <= 0) {
+          const t = (mk - sol.M[i-1]) / (sol.M[i] - sol.M[i-1] + 1e-12);
+          const x = xpx[i-1] + t * (xpx[i] - xpx[i-1]);
+          const r = rpx[i-1] + t * (rpx[i] - rpx[i-1]);
+          ctx.strokeStyle = mk === 1 ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.30)';
+          if (mk === 1) ctx.setLineDash([3, 3]); else ctx.setLineDash([]);
+          ctx.beginPath(); ctx.moveTo(x, cy - r); ctx.lineTo(x, cy + r); ctx.stroke();
+        }
+      }
+    }
+    ctx.setLineDash([]);
+
+    // Particles
+    for (const p of state.particles) {
+      p.s += 0.0018 + Math.pow(p._mLast || 0.5, 0.7) * 0.012;
+      if (p.s > 1.05) { p.s = -0.05; p.y = (Math.random() - 0.5) * 0.92; }
+      const sIdx = Math.min(prof.xs.length - 1, Math.max(0, Math.floor(p.s * (prof.xs.length - 1))));
+      const x = pad.l + p.s * plotW * (prof.xs[prof.xs.length-1] / prof.L);
+      const rHere = (sIdx >= 0 && sIdx < rpx.length) ? rpx[sIdx] : 0;
+      const yy = cy + p.y * rHere * 0.88;
+      const m = sol.M[Math.max(0, Math.min(sol.M.length-1, sIdx))];
+      p._mLast = m;
+      const [r, g, b] = turbo(Math.min(1, m / mMax));
+      ctx.fillStyle = `rgba(255,255,255,0.92)`;
+      ctx.beginPath(); ctx.arc(x, yy, 1.4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `rgba(${r},${g},${b},0.65)`;
+      ctx.beginPath(); ctx.arc(x, yy, 3.6, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+
+    // Wall outline
+    ctx.lineWidth = 2.2;
+    ctx.strokeStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(xpx[0], cy - rpx[0]);
+    for (let i = 1; i < xpx.length; i++) ctx.lineTo(xpx[i], cy - rpx[i]);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(xpx[0], cy + rpx[0]);
+    for (let i = 1; i < xpx.length; i++) ctx.lineTo(xpx[i], cy + rpx[i]);
+    ctx.stroke();
+
+    // Throat marker
+    const xt = pad.l + prof.xthroat * sx;
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.setLineDash([2, 4]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(xt, pad.t); ctx.lineTo(xt, pad.t + plotH); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.font = '700 9px -apple-system,system-ui,sans-serif';
+    ctx.fillText('THROAT  M = 1', xt + 6, pad.t + plotH - 8);
+
+    // Labels
+    ctx.fillStyle = 'rgba(180,200,230,0.85)';
+    ctx.font = '700 10px -apple-system,system-ui,sans-serif';
+    ctx.fillText('CHAMBER', pad.l - 70 * (w/1000) + 6, pad.t + 18);
+    ctx.fillText('EXIT', exitX + 6, pad.t + 18);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.font = '600 10px -apple-system,system-ui,sans-serif';
+    ctx.fillText(`r* = ${prof.rt.toFixed(3)} mm`, xt - 60, cy - rpx[Math.round(prof.xthroat / prof.L * (prof.xs.length-1))] - 8);
+    ctx.fillText(`r_e = ${prof.re.toFixed(3)} mm`, exitX - 60, cy - exitR - 8);
+
+    // Dimension ticks
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.beginPath(); ctx.moveTo(pad.l, h - pad.b + 24); ctx.lineTo(pad.l + plotW, h - pad.b + 24); ctx.stroke();
+    ctx.fillStyle = 'rgba(160,180,210,0.7)';
+    ctx.font = '600 9.5px -apple-system,system-ui,sans-serif';
+    ctx.fillText(`0`, pad.l - 2, h - pad.b + 38);
+    ctx.fillText(`${prof.L.toFixed(2)} mm`, pad.l + plotW - 24, h - pad.b + 38);
+  }
+
+  // -------------------- Charts --------------------
+  function drawChart(key, arr, prof) {
+    const c = charts[key];
+    const cx = chartCtx[key];
+    const { w, h } = fitCanvas(c);
+    cx.clearRect(0, 0, w, h);
+    if (!Number.isFinite(w) || !Number.isFinite(h) || w < 4 || h < 4) return;
+    const padL = 6, padR = 8, padT = 22, padB = 14;
+    const pw = w - padL - padR;
+    const ph = h - padT - padB;
+    cx.strokeStyle = 'rgba(255,255,255,0.05)';
+    cx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = padT + (ph * i) / 4;
+      cx.beginPath(); cx.moveTo(padL, y); cx.lineTo(padL + pw, y); cx.stroke();
+    }
+    if (prof) {
+      const xtThr = padL + (prof.xthroat / prof.L) * pw;
+      cx.strokeStyle = 'rgba(255,255,255,0.18)';
+      cx.setLineDash([2, 3]);
+      cx.beginPath(); cx.moveTo(xtThr, padT); cx.lineTo(xtThr, padT + ph); cx.stroke();
+      cx.setLineDash([]);
+    }
+    let yMin = Infinity, yMax = -Infinity;
+    for (let i = 0; i < arr.length; i++) { if (arr[i] < yMin) yMin = arr[i]; if (arr[i] > yMax) yMax = arr[i]; }
+    if (key === 'M') { yMin = 0; yMax = Math.max(yMax * 1.05, 1); }
+    else { yMin = 0; yMax = 1; }
+    cx.beginPath();
+    const N = arr.length;
+    for (let i = 0; i < N; i++) {
+      const x = padL + (prof.xs[i] / prof.L) * pw;
+      const y = padT + ph - ((arr[i] - yMin) / (yMax - yMin)) * ph;
+      if (i === 0) cx.moveTo(x, y); else cx.lineTo(x, y);
+    }
+    cx.lineTo(padL + pw, padT + ph);
+    cx.lineTo(padL, padT + ph);
+    cx.closePath();
+    const gr = cx.createLinearGradient(0, padT, 0, padT + ph);
+    if (key === 'M') { gr.addColorStop(0, 'rgba(255,193,99,0.45)'); gr.addColorStop(1, 'rgba(255,193,99,0.02)'); }
+    else if (key === 'P') { gr.addColorStop(0, 'rgba(120,200,255,0.45)'); gr.addColorStop(1, 'rgba(120,200,255,0.02)'); }
+    else if (key === 'T') { gr.addColorStop(0, 'rgba(255,138,101,0.45)'); gr.addColorStop(1, 'rgba(255,138,101,0.02)'); }
+    else                  { gr.addColorStop(0, 'rgba(170,255,170,0.45)'); gr.addColorStop(1, 'rgba(170,255,170,0.02)'); }
+    cx.fillStyle = gr; cx.fill();
+    cx.lineWidth = 1.8;
+    if (key === 'M') cx.strokeStyle = '#ffc163';
+    else if (key === 'P') cx.strokeStyle = '#78c8ff';
+    else if (key === 'T') cx.strokeStyle = '#ff8a65';
+    else                  cx.strokeStyle = '#aaffaa';
+    cx.beginPath();
+    for (let i = 0; i < N; i++) {
+      const x = padL + (prof.xs[i] / prof.L) * pw;
+      const y = padT + ph - ((arr[i] - yMin) / (yMax - yMin)) * ph;
+      if (i === 0) cx.moveTo(x, y); else cx.lineTo(x, y);
+    }
+    cx.stroke();
+    const xe = padL + pw;
+    const ye = padT + ph - ((arr[N-1] - yMin) / (yMax - yMin)) * ph;
+    cx.fillStyle = '#fff';
+    cx.beginPath(); cx.arc(xe, ye, 2.4, 0, Math.PI*2); cx.fill();
+    cx.strokeStyle = 'rgba(255,255,255,0.08)';
+    cx.strokeRect(padL, padT, pw, ph);
+  }
+
+  // -------------------- Update --------------------
+  function readControls() {
+    state.P0    = parseFloat(ctl.P0.value)  * 1e6;
+    state.T0    = parseFloat(ctl.T0.value);
+    state.rt_mm = parseFloat(ctl.Rt.value);
+    state.eps   = parseFloat(ctl.Eps.value);
+    state.Pa    = parseFloat(ctl.Pa.value)  * 1e6;
+    state.Lf    = parseFloat(ctl.Lf.value);
+    state.gamma = parseFloat(ctl.Gm.value);
+    lbl.P0.textContent  = parseFloat(ctl.P0.value).toFixed(3);
+    lbl.T0.textContent  = state.T0.toFixed(0);
+    lbl.Rt.textContent  = state.rt_mm.toFixed(2);
+    lbl.Eps.textContent = state.eps.toFixed(2);
+    lbl.Pa.textContent  = parseFloat(ctl.Pa.value).toFixed(3);
+    lbl.Lf.textContent  = state.Lf.toFixed(2);
+    lbl.Gm.textContent  = state.gamma.toFixed(2);
+    if (lbl.hudGamma) lbl.hudGamma.textContent = state.gamma.toFixed(2);
+  }
+
+  function recompute() {
+    state.prof = buildProfile(state.rt_mm, state.eps, state.Lf, state.N);
+    state.sol  = solveFlow(state.prof, state.gamma);
+    state.perf = performanceOf(state.prof, state.sol, state.P0, state.T0, state.Pa, state.gamma, state.R_N2);
+    const reg = classifyRegime(state.perf.Pe, state.Pa);
+    if (lbl.regime) { lbl.regime.textContent = reg.label; lbl.regime.className = 'regime ' + reg.tag; }
+    if (lbl.Me) lbl.Me.textContent = state.perf.Me.toFixed(2);
+    if (lbl.Pe) lbl.Pe.textContent = state.sol.P[state.sol.P.length - 1].toExponential(2);
+    if (lbl.Te) lbl.Te.textContent = state.sol.T[state.sol.T.length - 1].toFixed(3);
+    if (lbl.Re) lbl.Re.textContent = state.sol.D[state.sol.D.length - 1].toExponential(2);
+    if (lbl.sF)    lbl.sF.textContent    = (state.perf.F * 1000).toFixed(1);
+    if (lbl.sIsp)  lbl.sIsp.textContent  = state.perf.Isp.toFixed(1);
+    if (lbl.sMdot) lbl.sMdot.textContent = (state.perf.mdot * 1e6).toFixed(2);
+    if (lbl.sMe)   lbl.sMe.textContent   = state.perf.Me.toFixed(2);
+  }
+
+  function drawAll() {
+    try { drawNozzle(); } catch (e) { /* ignore transient draw errors */ }
+    if (state.prof && state.sol) {
+      try { drawChart('M', state.sol.M, state.prof); } catch (e) {}
+      try { drawChart('P', state.sol.P, state.prof); } catch (e) {}
+      try { drawChart('T', state.sol.T, state.prof); } catch (e) {}
+      try { drawChart('R', state.sol.D, state.prof); } catch (e) {}
+    }
+  }
+
+  // -------------------- Optimizer --------------------
+  function startOptimize() {
+    if (state.optimizing) return;
+    state.optimizing = true;
+    const btn = document.getElementById('nzOptimize');
+    if (btn) btn.classList.add('running');
+    const N_iter = 56;
+    let i = 0;
+    let best = { F: -Infinity, eps: state.eps, Lf: state.Lf };
+    const phase1End = 36;
+    function step() {
+      if (!state.optimizing) { if (btn) btn.classList.remove('running'); return; }
+      if (i < phase1End) {
+        const t = i / (phase1End - 1);
+        const eps = 2 + t * 14;
+        ctl.Eps.value = eps.toFixed(2);
+        readControls();
+        recompute();
+        if (state.perf.F > best.F) best = { F: state.perf.F, eps, Lf: state.Lf };
+        lbl.optStatus.classList.add('active');
+        lbl.optStatus.classList.remove('done');
+        lbl.optStatus.innerHTML = `Sweeping ε <strong style="color:#fff;">${eps.toFixed(2)}</strong> · F = ${(state.perf.F * 1000).toFixed(2)} mN · best ε = ${best.eps.toFixed(2)}`;
+      } else if (i < N_iter) {
+        const t = (i - phase1End) / (N_iter - phase1End - 1);
+        const Lf = 0.55 + t * 0.45;
+        ctl.Eps.value = best.eps.toFixed(2);
+        ctl.Lf.value  = Lf.toFixed(2);
+        readControls();
+        recompute();
+        if (state.perf.F > best.F) best = { F: state.perf.F, eps: best.eps, Lf };
+        lbl.optStatus.innerHTML = `Refining L/L₁₅° <strong style="color:#fff;">${Lf.toFixed(2)}</strong> · F = ${(state.perf.F * 1000).toFixed(2)} mN · best Lf = ${best.Lf.toFixed(2)}`;
+      } else {
+        ctl.Eps.value = best.eps.toFixed(2);
+        ctl.Lf.value  = best.Lf.toFixed(2);
+        readControls();
+        recompute();
+        lbl.optStatus.classList.remove('active');
+        lbl.optStatus.classList.add('done');
+        lbl.optStatus.innerHTML = `OPTIMUM · ε = <strong style="color:#6dffb1;">${best.eps.toFixed(2)}</strong> · L/L₁₅° = <strong style="color:#6dffb1;">${best.Lf.toFixed(2)}</strong> · F = ${(state.perf.F * 1000).toFixed(2)} mN · Isp = ${state.perf.Isp.toFixed(1)} s`;
+        state.optimizing = false;
+        if (btn) btn.classList.remove('running');
+        return;
+      }
+      try { drawAll(); } catch (e) {}
+      i++;
+      state.optAnim = setTimeout(step, 35);
+    }
+    state.optAnim = setTimeout(step, 0);
+  }
+
+  function stopOptimize() {
+    state.optimizing = false;
+    if (state.optAnim) { clearTimeout(state.optAnim); state.optAnim = null; }
+    const btn = document.getElementById('nzOptimize');
+    if (btn) btn.classList.remove('running');
+  }
+
+  function resetDesign() {
+    stopOptimize();
+    ctl.P0.value  = '0.345';
+    ctl.T0.value  = '293';
+    ctl.Rt.value  = '0.30';
+    ctl.Eps.value = '4.00';
+    ctl.Pa.value  = '0.000';
+    ctl.Lf.value  = '0.80';
+    ctl.Gm.value  = '1.40';
+    readControls();
+    recompute();
+    if (lbl.optStatus) {
+      lbl.optStatus.classList.remove('active', 'done');
+      lbl.optStatus.innerHTML = 'Press <em>Optimize Shape</em> to search ε &amp; L/L₁₅° for max thrust at current Pₐ.';
+    }
+    drawAll();
+  }
+
+  // -------------------- Wiring --------------------
+  Object.values(ctl).forEach(el => {
+    if (!el) return;
+    el.addEventListener('input', () => { readControls(); recompute(); });
+  });
+  document.getElementById('nzOptimize').addEventListener('click', startOptimize);
+  document.getElementById('nzReset').addEventListener('click', resetDesign);
+  window.addEventListener('keydown', e => { if (e.key === 'Escape') stopOptimize(); });
+  window.addEventListener('resize', () => drawAll());
+
+  // -------------------- Init & render loop --------------------
+  state.particles = buildParticles(120);
+  drawColorbar();
+  readControls();
+  recompute();
+
+  function loop() {
+    if (!state.active) return;
+    drawAll();
+    requestAnimationFrame(loop);
+  }
+  loop();
+})();
+</script>
+</body>
+</html>
