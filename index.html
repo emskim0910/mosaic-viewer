@@ -4,7 +4,16 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="screen-orientation" content="portrait" />
-<title>MOSAIC</title>
+<title>Ethan M. Kim · Engineering Portfolio</title>
+<meta name="author" content="Ethan M. Kim" />
+<meta name="description" content="Engineering portfolio of Ethan M. Kim — mechanical engineering at Brown University and principal investigator on MOSAIC, a monolithic additively manufactured cold-gas thruster for CubeSats." />
+<meta name="theme-color" content="#03050a" />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Ethan M. Kim · Engineering Portfolio" />
+<meta property="og:description" content="Spacecraft propulsion hardware, from CAD to cold-flow test. Featuring MOSAIC — a monolithic additively manufactured CubeSat cold-gas thruster, with an interactive 3D model." />
+<meta property="og:url" content="https://emskim0910.github.io/mosaic-viewer/" />
+<meta name="twitter:card" content="summary_large_image" />
 <style>
   :root {
     --bg-0: #000000;
@@ -19,25 +28,35 @@
     --good: #6dffb1;
   }
   * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
   html, body {
-    margin: 0; padding: 0; height: 100%; overflow: hidden;
-    position: fixed; inset: 0;
-    overscroll-behavior: none;
+    margin: 0; padding: 0; min-height: 100%;
     background: #03050a;
     color: var(--text);
     font: 14px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     user-select: none;
-    touch-action: none;
+    touch-action: pan-y;
   }
-  #app { position: fixed; inset: 0; }
+  body { overflow-x: hidden; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+  /* WebGL canvas is a fixed backdrop; portfolio sections scroll over it. */
+  #app { position: fixed; inset: 0; z-index: 0; }
+  /* OrbitControls owns the wheel only while the hero is exactly at rest at the top.
+     The moment the page has scrolled at all, the canvas stops swallowing wheel and
+     touch events, so scrolling back up to the viewer always succeeds. */
+  body:not(.at-top) #app { pointer-events: none; }
+
+  /* The hero is a full-viewport spacer that reserves the first screen for the viewer. */
+  #hero { position: relative; height: 100vh; height: 100dvh; z-index: 1; pointer-events: none; }
   canvas { display: block; outline: none; }
 
   /* ---- Top title bar ---- */
   .titlebar {
-    position: fixed; top: 16px; left: 16px;
+    position: fixed; top: 72px; left: 16px; z-index: 20;
     width: 400px; max-width: 400px;
-    max-height: calc(100vh - 48px);
+    max-height: calc(100vh - 104px);
     padding: 18px 20px 16px;
     background-color: rgba(6, 8, 13, 0.94);
     background-image:
@@ -179,7 +198,7 @@
   .panel.collapsed { gap: 0; }
   .panel.collapsed .panel-body { display: none; }
   .panel {
-    position: fixed; top: 16px; right: 16px; width: 240px; padding: 16px;
+    position: fixed; top: 72px; right: 16px; z-index: 20; width: 240px; padding: 16px;
     background-color: rgba(0,0,0,0.96);
     background-image:
       linear-gradient(rgba(255,255,255,0.055) 1px, transparent 1px),
@@ -190,7 +209,7 @@
     border: 1px solid rgba(255,255,255,0.22); border-radius: 0px;
     box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 8px 30px rgba(0,0,0,0.45);
     display: flex; flex-direction: column; gap: 12px;
-    max-height: calc(100vh - 48px); overflow-y: auto; scrollbar-width: none;
+    max-height: calc(100vh - 104px); overflow-y: auto; scrollbar-width: none;
   }
   .panel::-webkit-scrollbar { display: none; }
   .panel h2 { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-dim); }
@@ -288,6 +307,221 @@
     border-radius: 2px; min-height: 24px;
   }
 
+  /* =====================================================
+     PORTFOLIO SHELL
+     ===================================================== */
+
+  /* Viewer chrome belongs to the hero only — retire it once the user scrolls. */
+  body.past-hero .titlebar,
+  body.past-hero .panel,
+  body.past-hero .hint {
+    opacity: 0; pointer-events: none; visibility: hidden;
+    transition: opacity 260ms ease, visibility 0s linear 260ms;
+  }
+  .titlebar, .panel, .hint {
+    transition: opacity 260ms ease, visibility 0s linear 0s;
+  }
+
+  /* ---- Top navigation ---- */
+  .topnav {
+    position: fixed; top: 0; left: 0; right: 0; height: 56px; z-index: 40;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px; gap: 16px;
+    background: rgba(3, 5, 10, 0.72);
+    border-bottom: 1px solid rgba(255,255,255,0.10);
+    backdrop-filter: blur(14px) saturate(120%);
+    -webkit-backdrop-filter: blur(14px) saturate(120%);
+    transition: background 240ms ease, border-color 240ms ease;
+  }
+  body.past-hero .topnav {
+    background: rgba(3, 5, 10, 0.94);
+    border-bottom-color: rgba(255,255,255,0.16);
+  }
+  .topnav .brand {
+    display: flex; align-items: baseline; gap: 10px; min-width: 0;
+    font-size: 12.5px; font-weight: 700; letter-spacing: 2.2px;
+    text-transform: uppercase; color: #fff; text-decoration: none; white-space: nowrap;
+  }
+  .topnav .brand .role {
+    font-size: 9px; font-weight: 600; letter-spacing: 1.2px;
+    color: var(--text-dim);
+  }
+  .topnav nav { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  .topnav nav a {
+    font-size: 10px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase;
+    color: var(--text-dim); text-decoration: none;
+    padding: 8px 11px; border: 1px solid transparent; border-radius: 2px;
+    transition: color 140ms, border-color 140ms, background 140ms;
+  }
+  .topnav nav a:hover {
+    color: #fff; border-color: rgba(255,255,255,0.28); background: rgba(255,255,255,0.05);
+  }
+  .topnav nav a.cta { color: #fff; border-color: rgba(255,255,255,0.22); }
+
+  /* ---- Scroll cue in the hero ---- */
+  .scroll-cue {
+    position: fixed; left: 50%; bottom: 62px; transform: translateX(-50%);
+    z-index: 21; display: flex; flex-direction: column; align-items: center; gap: 6px;
+    font-size: 9px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase;
+    color: var(--text-dim); background: none; border: none; font-family: inherit;
+    cursor: pointer; padding: 6px 10px;
+    transition: color 160ms, opacity 260ms ease, visibility 0s linear 0s;
+  }
+  .scroll-cue:hover { color: #fff; }
+  .scroll-cue svg { animation: cue-bob 1.8s ease-in-out infinite; }
+  @keyframes cue-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
+  body.past-hero .scroll-cue {
+    opacity: 0; pointer-events: none; visibility: hidden;
+    transition: opacity 260ms ease, visibility 0s linear 260ms;
+  }
+  @media (prefers-reduced-motion: reduce) { .scroll-cue svg { animation: none; } }
+
+  /* ---- Portfolio body ---- */
+  .pf {
+    position: relative; z-index: 10;
+    background: #03050a;
+    border-top: 1px solid rgba(255,255,255,0.14);
+    user-select: text;
+  }
+  .pf-section { max-width: 1080px; margin: 0 auto; padding: 84px 24px; scroll-margin-top: 56px; }
+  .pf-section + .pf-section { border-top: 1px solid rgba(255,255,255,0.08); }
+  .pf-eyebrow {
+    font-size: 9px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--text-dim); margin: 0 0 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .pf-eyebrow::after {
+    content: ""; flex: 1; height: 1px; background: rgba(255,255,255,0.12);
+  }
+  .pf-h2 {
+    margin: 0 0 18px; font-size: 26px; line-height: 1.2; font-weight: 700; letter-spacing: -0.4px;
+    color: #fff;
+  }
+  .pf-lead { margin: 0 0 16px; font-size: 14.5px; line-height: 1.7; color: #c9cfd8; max-width: 68ch; }
+  .pf-lead strong { color: #fff; }
+  .pf-body { margin: 0 0 14px; font-size: 13px; line-height: 1.75; color: var(--text-dim); max-width: 70ch; }
+  .pf-body strong { color: #c9cfd8; }
+  .pf-body a, .pf-lead a { color: #fff; text-decoration: none; border-bottom: 1px dashed rgba(255,255,255,0.35); }
+  .pf-body a:hover, .pf-lead a:hover { border-bottom-color: #fff; }
+
+  /* ---- Metric strip ---- */
+  .pf-metrics {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.10);
+    margin: 28px 0 0;
+  }
+  .pf-metric { background: #03050a; padding: 18px 16px; }
+  .pf-metric .m-val {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.5px; color: #fff;
+    font-variant-numeric: tabular-nums; line-height: 1.1;
+  }
+  .pf-metric .m-lbl {
+    margin-top: 6px; font-size: 9px; font-weight: 700; letter-spacing: 1.2px;
+    text-transform: uppercase; color: var(--text-dim);
+  }
+
+  /* ---- Capability grid ---- */
+  .pf-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 8px; }
+  .pf-cap {
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.02);
+    padding: 18px 18px 20px; border-radius: 2px;
+    transition: border-color 160ms, background 160ms;
+  }
+  .pf-cap:hover { border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.04); }
+  .pf-cap h3 {
+    margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.9px;
+    text-transform: uppercase; color: #fff;
+  }
+  .pf-cap ul { margin: 0; padding-left: 15px; }
+  .pf-cap li { font-size: 12px; line-height: 1.65; color: var(--text-dim); margin-bottom: 3px; }
+  .pf-cap li strong { color: #c9cfd8; font-weight: 600; }
+
+  /* ---- Project cards ---- */
+  .pf-projects { display: flex; flex-direction: column; gap: 18px; }
+  .pf-project {
+    display: grid; grid-template-columns: 128px 1fr; gap: 26px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background:
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px),
+      rgba(255,255,255,0.015);
+    background-size: 22px 22px, 22px 22px, auto;
+    padding: 26px 26px 28px; border-radius: 2px;
+    transition: border-color 180ms, transform 180ms;
+  }
+  .pf-project:hover { border-color: rgba(255,255,255,0.26); }
+  .pf-project .p-index {
+    font-size: 10px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .pf-project .p-index .num {
+    display: block; font-size: 34px; line-height: 1; color: #fff;
+    letter-spacing: -1px; margin-bottom: 8px; font-variant-numeric: tabular-nums;
+  }
+  .pf-project h3 {
+    margin: 0 0 4px; font-size: 18px; font-weight: 700; letter-spacing: -0.2px; color: #fff;
+  }
+  .pf-project .p-sub {
+    margin: 0 0 14px; font-size: 10px; font-weight: 700; letter-spacing: 1.3px;
+    text-transform: uppercase; color: var(--text-dim);
+  }
+  .pf-project p { margin: 0 0 14px; font-size: 13px; line-height: 1.7; color: var(--text-dim); max-width: 66ch; }
+  .pf-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+  .pf-tag {
+    font-size: 9px; font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase;
+    padding: 4px 9px; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.04); color: var(--text-dim);
+  }
+  .pf-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pf-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 11px; font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase;
+    padding: 10px 15px; border-radius: 2px; text-decoration: none; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.20); background: rgba(255,255,255,0.04); color: #fff;
+    font-family: inherit;
+    transition: background 140ms, border-color 140ms, transform 80ms;
+  }
+  .pf-btn:hover { background: rgba(255,255,255,0.11); border-color: rgba(255,255,255,0.38); }
+  .pf-btn:active { transform: translateY(1px); }
+  .pf-btn.ghost { background: transparent; color: var(--text-dim); }
+  .pf-btn.ghost:hover { color: #fff; }
+  /* Addresses and handles read wrong in all-caps. */
+  .pf-btn.literal { text-transform: none; letter-spacing: 0.2px; font-size: 12.5px; font-weight: 600; }
+
+  /* ---- Contact ---- */
+  .pf-contact-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+  .pf-footer {
+    border-top: 1px solid rgba(255,255,255,0.10);
+    padding: 26px 24px 34px; text-align: center;
+    font-size: 10.5px; letter-spacing: 0.4px; color: #5a6069;
+  }
+  .pf-footer a { color: var(--text-dim); text-decoration: none; border-bottom: 1px dashed rgba(255,255,255,0.2); }
+  .pf-footer a:hover { color: #fff; }
+
+  @media (max-width: 900px) {
+    .pf-grid { grid-template-columns: repeat(2, 1fr); }
+    .pf-metrics { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 720px) {
+    .pf-section { padding: 56px 18px; }
+    .pf-h2 { font-size: 21px; }
+    .pf-lead { font-size: 13.5px; }
+    .pf-grid { grid-template-columns: 1fr; }
+    .pf-project { grid-template-columns: 1fr; gap: 14px; padding: 20px; }
+    .pf-project .p-index { display: flex; align-items: baseline; gap: 10px; }
+    .pf-project .p-index .num { font-size: 24px; margin-bottom: 0; }
+    /* On touch screens the canvas owns the swipe (OrbitControls), so a floating
+       cue can't be the scroll affordance — the nav links are, and they always
+       show. Dropping the cue also keeps it off the bottom control panel. */
+    .scroll-cue { display: none; }
+    .topnav { height: 50px; padding: 0 12px; }
+    .topnav .brand { font-size: 11px; letter-spacing: 1.4px; }
+    .topnav .brand .role { display: none; }
+    .topnav nav a { padding: 7px 8px; font-size: 9px; letter-spacing: 1px; }
+  }
+
   /* ---- Portrait lock ---- */
   .rotate-prompt {
     display: none; position: fixed; inset: 0; z-index: 9999;
@@ -303,26 +537,45 @@
     .hint { display: none; }
     .titlebar {
       display: flex; flex-direction: column; position: fixed;
-      top: 8px; left: 8px; right: 8px; width: auto; max-width: none;
-      padding: 12px 14px; max-height: calc(100dvh - 96px); overflow: hidden; touch-action: manipulation;
+      top: 58px; left: 8px; right: 8px; width: auto; max-width: none;
+      padding: 12px 14px; max-height: calc(100dvh - 146px); overflow: hidden; touch-action: manipulation;
     }
     .titlebar h1 { font-size: 14px; }
     .titlebar .tagline { font-size: 11px; }
     .panel { top: auto; right: 8px; left: 8px; bottom: 8px; width: auto; padding: 12px; max-height: 50vh; }
     body.cards-expanded .panel { display: none; }
-    body.cards-expanded .titlebar { max-height: calc(100dvh - 16px); }
+    body.cards-expanded .titlebar { max-height: calc(100dvh - 66px); }
     .panel .collapse-btn svg { transform: rotate(0deg); }
     .panel.collapsed .collapse-btn svg { transform: rotate(180deg); }
   }
+  /* The 3D viewer is portrait-only on small screens, but the portfolio below it
+     stays readable in landscape — so the prompt covers the hero, not the page. */
   @media (max-width: 900px) and (orientation: landscape) {
-    .rotate-prompt { display: flex; }
-    #app, .titlebar, .panel, .hint, #loader { visibility: hidden; }
+    body:not(.past-hero) .rotate-prompt { display: flex; }
+    body:not(.past-hero) :is(#app, .titlebar, .panel, .hint, #loader) { visibility: hidden; }
+    body.past-hero #app { visibility: hidden; }
+    /* Keep the nav and the scroll cue above the prompt so the portfolio stays reachable. */
+    .rotate-prompt { z-index: 30; }
+    .scroll-cue { z-index: 41; bottom: 20px; }
   }
 </style>
 </head>
-<body>
+<body class="at-top">
 
 <div id="app"></div>
+
+<!-- ============================================================
+     PORTFOLIO — TOP NAVIGATION
+     ============================================================ -->
+<header class="topnav">
+  <a class="brand" href="#hero">Ethan&nbsp;M.&nbsp;Kim <span class="role">Mechanical Engineering</span></a>
+  <nav>
+    <a href="#work">Work</a>
+    <a href="#about">About</a>
+    <a href="#contact">Contact</a>
+    <a class="cta" href="https://github.com/emskim0910" target="_blank" rel="noopener noreferrer">GitHub</a>
+  </nav>
+</header>
 
 <div class="rotate-prompt">
   <svg width="56" height="56" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
@@ -633,6 +886,213 @@
   <div class="lbl">Loading CAD</div>
   <div class="pct" id="loaderPct">0%</div>
 </div>
+
+<!-- ============================================================
+     PORTFOLIO — HERO SPACER
+     Reserves the first viewport for the live 3D viewer above.
+     ============================================================ -->
+<div id="hero"></div>
+
+<button class="scroll-cue" id="scrollCue" type="button" aria-label="Scroll to portfolio">
+  <span>Portfolio</span>
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 3v10M3.5 8.5L8 13l4.5-4.5"/>
+  </svg>
+</button>
+
+<!-- ============================================================
+     PORTFOLIO — CONTENT
+     ============================================================ -->
+<main class="pf">
+
+  <!-- ============== ABOUT ============== -->
+  <section class="pf-section" id="about">
+    <p class="pf-eyebrow">About</p>
+    <h2 class="pf-h2">Spacecraft propulsion hardware, from CAD to cold&#8209;flow test.</h2>
+
+    <p class="pf-lead">
+      I'm <strong>Ethan M. Kim</strong>, a mechanical engineering student at Brown University and
+      principal investigator on <strong>MOSAIC</strong> — a monolithically integrated, additively
+      manufactured cold-gas thruster for CubeSat-class satellites, supported by a
+      <strong>NASA Space Grant</strong> and a <strong>Brown University Engineering Grant</strong>.
+    </p>
+
+    <p class="pf-body">
+      The work runs the full engineering cycle rather than a single slice of it: parametric CAD of a
+      pressure vessel that doubles as the satellite's load-bearing chassis, FEA and topology
+      optimization against launch loads, nonlinear CFD on the internal feed manifolds, design for
+      laser powder-bed fusion in AlSi10Mg, and validation by leak and cold-flow testing.
+      The driving constraint is cost: current CubeSat propulsion runs upward of US$100,000 per unit,
+      which prices out exactly the university labs and early-stage operators most likely to fly it.
+    </p>
+
+    <p class="pf-body">
+      I also build the analysis tooling when what's available doesn't fit. Both interactive pieces on
+      this site — the WebGL CAD viewer above and the isentropic nozzle flow simulator below — are
+      single-file, zero-dependency browser applications written from scratch.
+    </p>
+
+    <p class="pf-body">
+      MOSAIC is advised by <strong>Rick D. Fleeter, Ph.D.</strong> (Adjunct Associate Professor,
+      Brown University; former President, AeroAstro) with <strong>Jeanue Chung</strong>
+      (Founder &amp; President, LUNR Aerospace Corporation) as subject-matter expert.
+    </p>
+
+    <div class="pf-metrics">
+      <div class="pf-metric">
+        <div class="m-val">97%</div>
+        <div class="m-lbl">Unit cost reduction</div>
+      </div>
+      <div class="pf-metric">
+        <div class="m-val">$3K</div>
+        <div class="m-lbl">Target cost per unit</div>
+      </div>
+      <div class="pf-metric">
+        <div class="m-val">1U</div>
+        <div class="m-lbl">Form factor · scales to ~5U</div>
+      </div>
+      <div class="pf-metric">
+        <div class="m-val">~13 N·s</div>
+        <div class="m-lbl">Total impulse</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== CAPABILITIES ============== -->
+  <section class="pf-section" id="capabilities">
+    <p class="pf-eyebrow">Capabilities</p>
+    <h2 class="pf-h2">What this work demanded</h2>
+    <p class="pf-body" style="margin-bottom:26px;">
+      Each item below is exercised somewhere in the MOSAIC program or its supporting tooling —
+      not a generic skills list.
+    </p>
+
+    <div class="pf-grid">
+      <div class="pf-cap">
+        <h3>Design &amp; Structural Analysis</h3>
+        <ul>
+          <li><strong>Parametric CAD</strong> — monolithic vessel, manifolds and nozzle as one continuous body; 1U, 3U and 6U configurations</li>
+          <li><strong>FEA &amp; topology optimization</strong> — material removed from non-load-bearing regions at a 2× safety factor under 10G launch loads</li>
+          <li><strong>Pressure vessel design</strong> — 300 psi MEOP, structure doing double duty as the CubeSat chassis</li>
+        </ul>
+      </div>
+
+      <div class="pf-cap">
+        <h3>Fluids &amp; Thermodynamics</h3>
+        <ul>
+          <li><strong>Nonlinear CFD</strong> — curvilinear manifold optimization, stagnation-point suppression, feed-path discharge coefficient</li>
+          <li><strong>Compressible nozzle flow</strong> — quasi-1D isentropic analysis of a converging–diverging nozzle, 3–5:1 area ratio</li>
+          <li><strong>Performance modelling</strong> — thrust, I<sub>sp</sub>, mass flow and flow-regime classification across back pressures</li>
+        </ul>
+      </div>
+
+      <div class="pf-cap">
+        <h3>Manufacturing &amp; Materials</h3>
+        <ul>
+          <li><strong>DfAM / LPBF · SLM</strong> — AlSi10Mg on an EOS M290; build orientation chosen to put hoop stress on the XY plane rather than Z-layer boundaries</li>
+          <li><strong>Post-processing</strong> — HIP at 100 MPa / 520 °C, stress relief at 300 °C, &lt;0.1% porosity target</li>
+          <li><strong>Precision finishing</strong> — EDM / laser-drilled 0.3–0.5 mm throat, electropolished to Ra &lt;3.2 µm to suppress crack initiation</li>
+        </ul>
+      </div>
+
+      <div class="pf-cap">
+        <h3>Systems, Test &amp; Software</h3>
+        <ul>
+          <li><strong>Feed-system integration</strong> — regulator, solenoid and filter train; COTS selection across transducer, valve, MCU and PC/104 bus</li>
+          <li><strong>Validation</strong> — leak testing and inert-fluid cold-flow characterization</li>
+          <li><strong>Engineering tooling</strong> — WebGL/Three.js CAD visualization and a dependency-free numerical flow simulator, both built in-house</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== WORK ============== -->
+  <section class="pf-section" id="work">
+    <p class="pf-eyebrow">Selected Work</p>
+    <h2 class="pf-h2">Projects</h2>
+
+    <div class="pf-projects">
+
+      <article class="pf-project">
+        <div class="p-index"><span class="num">01</span> Flagship</div>
+        <div>
+          <h3>MOSAIC Cold-Gas Thruster</h3>
+          <p class="p-sub">Monolithic · Optimized &amp; Scalable Additively Integrated · CubeSat propulsion</p>
+          <p>
+            A 1U cold-gas propulsion module that prints the pressure vessel, feed manifolds and nozzle
+            as a single AlSi10Mg structure, eliminating the fittings and joints that dominate the mass
+            and leak budget of conventional systems. The vessel doubles as the satellite's load-bearing
+            chassis. Targeting <strong>US$3,000 per unit</strong> against a
+            <strong>US$100,000+</strong> state of the art — a capability NASA's technology taxonomy
+            ranks 3rd among 95 identified shortfalls.
+          </p>
+          <div class="pf-tags">
+            <span class="pf-tag">CAD</span>
+            <span class="pf-tag">FEA</span>
+            <span class="pf-tag">CFD</span>
+            <span class="pf-tag">LPBF / SLM</span>
+            <span class="pf-tag">AlSi10Mg</span>
+            <span class="pf-tag">Cold-flow test</span>
+          </div>
+          <div class="pf-actions">
+            <button class="pf-btn" type="button" data-viewer-tab="overview">↑ Explore the 3D model</button>
+            <button class="pf-btn ghost" type="button" data-viewer-tab="specs">Technical specs</button>
+            <button class="pf-btn ghost" type="button" data-viewer-tab="roadmap">Roadmap</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="pf-project">
+        <div class="p-index"><span class="num">02</span> Tooling</div>
+        <div>
+          <h3>Isentropic Nozzle Flow Simulator</h3>
+          <p class="p-sub">Interactive quasi-1D compressible flow solver · zero dependencies</p>
+          <p>
+            A single-file simulation of quasi-1D isentropic flow through the MOSAIC converging–diverging
+            nozzle, written without libraries, build step or network access. It renders a Mach contour
+            with animated streamlines, live axial profiles of <em>M</em>, <em>P/P₀</em>, <em>T/T₀</em>
+            and <em>ρ/ρ₀</em>, and running performance stats — thrust, I<sub>sp</sub>, ṁ and exit Mach —
+            while classifying the flow regime. An <strong>Optimize Shape</strong> routine sweeps area
+            ratio ε and length L/L₁₅° to maximize thrust at the current back pressure.
+          </p>
+          <div class="pf-tags">
+            <span class="pf-tag">Compressible flow</span>
+            <span class="pf-tag">Numerical methods</span>
+            <span class="pf-tag">Canvas 2D</span>
+            <span class="pf-tag">Shape optimization</span>
+          </div>
+          <div class="pf-actions">
+            <a class="pf-btn" href="./nozzle_sim.html">⌁ Launch simulation</a>
+            <a class="pf-btn ghost" href="https://github.com/emskim0910/mosaic-viewer/blob/main/nozzle_sim.html" target="_blank" rel="noopener noreferrer">Source</a>
+          </div>
+        </div>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ============== CONTACT ============== -->
+  <section class="pf-section" id="contact">
+    <p class="pf-eyebrow">Contact</p>
+    <h2 class="pf-h2">Get in touch</h2>
+    <p class="pf-lead">
+      Open to conversations about small-spacecraft propulsion, design for additive manufacturing,
+      and research collaboration.
+    </p>
+    <div class="pf-contact-links">
+      <a class="pf-btn literal" href="mailto:ethan_m_kim@brown.edu">✉&nbsp; ethan_m_kim@brown.edu</a>
+      <a class="pf-btn ghost literal" href="https://github.com/emskim0910" target="_blank" rel="noopener noreferrer">GitHub · @emskim0910</a>
+    </div>
+  </section>
+
+  <footer class="pf-footer">
+    Ethan M. Kim · Brown University, Mechanical Engineering ·
+    MOSAIC supported by NASA Space Grant<br>
+    Built with <a href="https://threejs.org" target="_blank" rel="noopener noreferrer">Three.js</a> ·
+    <a href="https://github.com/emskim0910/mosaic-viewer" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
+  </footer>
+
+</main>
 
 <!-- ============================================================
      THREE.JS — ES MODULE
@@ -949,6 +1409,50 @@ if (screen.orientation && screen.orientation.lock) {
   window.addEventListener('resize', update);
   new MutationObserver(update).observe(document.querySelector('.titlebar'), { subtree: true, childList: true, attributes: true });
   update();
+})();
+
+// ---------- Portfolio shell ----------
+(function () {
+  const body = document.body;
+  const pf   = document.querySelector('.pf');
+  const cue  = document.getElementById('scrollCue');
+
+  // Retire the viewer chrome once the hero has scrolled away, and stop the
+  // canvas from intercepting wheel/touch events over the portfolio content.
+  let ticking = false;
+  function onScroll() {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const y = window.scrollY;
+      // Fade the viewer chrome early, before portfolio content slides under it.
+      body.classList.toggle('past-hero', y > window.innerHeight * 0.22);
+      body.classList.toggle('at-top', y <= 8);
+      ticking = false;
+    });
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+  onScroll();
+
+  if (cue && pf) {
+    cue.addEventListener('click', () => pf.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
+
+  // Project buttons drive the viewer's own tab strip, then return to the hero.
+  document.querySelectorAll('[data-viewer-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.viewerTab;
+      const tab = document.querySelector(`.model-tab[data-tab="${target}"]`);
+      if (tab) tab.click();
+      // The info card starts collapsed on small screens — open it so the tab is visible.
+      // cardsCollapsed / applyCollapsed live in this module's scope; drive them
+      // directly so the collapse button stays in sync.
+      cardsCollapsed = false;
+      applyCollapsed();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
 })();
 
 // ---------- Render loop ----------
