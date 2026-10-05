@@ -11,11 +11,13 @@ background, capabilities, projects, and contact.
 
 | File | Contents |
 | --- | --- |
-| `index.html` | The portfolio. Interactive Three.js CAD viewer as the hero (STL geometry base64-embedded, no fetch), followed by the About / Capabilities / Work / Contact sections. |
+| `index.html` | The portfolio. Interactive Three.js CAD viewer as the hero (fetches the part meshes from `models/`), followed by the About / Capabilities / Work / Contact sections. |
+| `models/` | The Rev5 containment vessel: `MOSAIC_Vessel_Rev5_Isogrid.step` (one solid, 33 MB) and nine binary STL meshes, one per named body, that the viewer loads. |
 | `nozzle_sim.html` | Standalone isentropic nozzle flow simulation, linked from the Work section and served live at [`/nozzle_sim.html`](https://emskim0910.github.io/mosaic-viewer/nozzle_sim.html). |
 
-Both files are self-contained: no build step, no bundler, no server. `index.html` pulls Three.js
-from a CDN via an import map; `nozzle_sim.html` has zero dependencies of any kind.
+No build step and no bundler. `index.html` pulls Three.js from a CDN via an import map and fetches
+its meshes from `models/`, so it needs to be served over HTTP; `nozzle_sim.html` has zero dependencies
+of any kind and runs from `file://`.
 
 ## Page structure — `index.html`
 
@@ -56,6 +58,15 @@ opening it directly:
 python3 -m http.server 8000
 # http://localhost:8000/
 ```
+
+## The model in the viewer
+
+Containment vessel Rev5 (2026-10-01): flat 1.5 mm AlSi10Mg skins with an external isogrid on all four
+walls, a 5 × 5 internal web core that ties every wall, and 1.8 mm caps, printed as one body with no
+internal supports. 613 g, 510 cm³, 96 × 86 × 96 mm. Design MEOP 500 psig; the Rev5 FEA puts proof
+capability at 1,226 psig (governing peak 104 MPa at 750 psi, interconnect hole). SolidWorks
+validation of Rev5 is pending. The STEP in `models/` is the print and FEA solid; the STL meshes are
+coarse tessellations for display only.
 
 ## MOSAIC — the project
 
