@@ -736,7 +736,7 @@
 <script type="importmap">
 {
   "imports": {
-    "three":          "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three":          "https://unpkg.com/three@0.160.0/build/three.module.min.js",
     "three/addons/":  "https://unpkg.com/three@0.160.0/examples/jsm/"
   }
 }
@@ -766,8 +766,21 @@ const PARTS = [
 
 // ---------- Renderer ----------
 const app = document.getElementById('app');
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', stencil: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+// Memory budget: the drawing buffer is the dominant cost of this page, far above the
+// geometry (~163k triangles, a few MB). 4x MSAA costs ~40 bytes per pixel (multisampled
+// colour + depth/stencil, resolve, swap copy) against ~12 without, so MSAA is kept only
+// where pixels are coarse enough to need it, and the pixel ratio is capped so the
+// buffers stay inside FRAMEBUFFER_BUDGET_MB at any window size.
+const FRAMEBUFFER_BUDGET_MB = 80;
+const MSAA = window.devicePixelRatio < 2;
+const BYTES_PER_PIXEL = MSAA ? 40 : 12;
+function budgetPixelRatio() {
+  const maxPixels = FRAMEBUFFER_BUDGET_MB * 1048576 / BYTES_PER_PIXEL;
+  const cssPixels = Math.max(1, window.innerWidth * window.innerHeight);
+  return Math.min(window.devicePixelRatio, 2, Math.sqrt(maxPixels / cssPixels));
+}
+const renderer = new THREE.WebGLRenderer({ antialias: MSAA, powerPreference: 'high-performance', stencil: true });
+renderer.setPixelRatio(budgetPixelRatio());
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -785,7 +798,10 @@ scene.fog = new THREE.Fog(bgColor, 600, 3000);
 // PBR environment
 const pmrem = new THREE.PMREMGenerator(renderer);
 pmrem.compileEquirectangularShader();
-scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+const room = new RoomEnvironment();
+scene.environment = pmrem.fromScene(room, 0.04).texture;
+room.dispose();
+pmrem.dispose();   // frees the generator's scratch targets; the baked texture stays
 const maxAniso = renderer.capabilities.getMaxAnisotropy();
 
 // ---------- Camera ----------
@@ -806,10 +822,10 @@ controls.maxDistance = 2000;
 const key = new THREE.DirectionalLight(0xffffff, 0.95);
 key.position.set(220, 320, 180);
 key.castShadow = true;
-key.shadow.mapSize.set(2048, 2048);
+key.shadow.mapSize.set(1024, 1024);
 key.shadow.camera.near = 50; key.shadow.camera.far = 1200;
-key.shadow.camera.left = -300; key.shadow.camera.right = 300;
-key.shadow.camera.top  =  300; key.shadow.camera.bottom = -300;
+key.shadow.camera.left = -170; key.shadow.camera.right = 170;
+key.shadow.camera.top  =  170; key.shadow.camera.bottom = -170;   // fits the fully exploded model, so 1024 px holds the old texel size
 key.shadow.bias = -0.00012; key.shadow.normalBias = 0.6;
 scene.add(key);
 const rim  = new THREE.DirectionalLight(0x9fc1ff, 0.45); rim.position.set(-200, 150, -180); scene.add(rim);
@@ -1054,6 +1070,7 @@ window.addEventListener('keydown', e => {
 });
 
 window.addEventListener('resize', () => {
+  renderer.setPixelRatio(budgetPixelRatio());
   renderer.setSize(window.innerWidth, window.innerHeight);
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
