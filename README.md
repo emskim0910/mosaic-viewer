@@ -1,17 +1,15 @@
-# Engineering Portfolio — Ethan M. Kim
+# MOSAIC Thruster — Interactive CAD Viewer
 
-Source for [emskim0910.github.io/mosaic-viewer](https://emskim0910.github.io/mosaic-viewer/) — an
-engineering portfolio built around the **MOSAIC** (Monolithic, Optimized & Scalable Additively
-Integrated Cold-Gas) CubeSat thruster.
-
-The site opens on a live WebGL model of the thruster, then scrolls into the portfolio proper:
-background, capabilities, projects, and contact.
+Source for [emskim0910.github.io/mosaic-viewer](https://emskim0910.github.io/mosaic-viewer/) — the
+project site for the **MOSAIC** (Monolithic, Optimized & Scalable Additively Integrated Cold-Gas)
+CubeSat thruster: a live WebGL model of the Rev5 containment vessel with Overview, Specs and Roadmap
+tabs. The personal portfolio lives separately at [emskim0910.github.io](https://emskim0910.github.io/).
 
 ## What ships where
 
 | File | Contents |
 | --- | --- |
-| `index.html` | The portfolio. Interactive Three.js CAD viewer as the hero (fetches the part meshes from `models/`), followed by the About / Capabilities / Work / Contact sections. |
+| `index.html` | The viewer. Interactive Three.js model of the Rev5 vessel (meshes fetched from `models/`), with Overview / Specs / Roadmap cards and explode, auto-spin and reset controls. |
 | `models/` | The Rev5 containment vessel: `MOSAIC_Vessel_Rev5_Isogrid.step` (one solid, 33 MB) and nine binary STL meshes, one per named body, that the viewer loads. |
 | `nozzle_sim.html` | Standalone isentropic nozzle flow simulation, linked from the Work section and served live at [`/nozzle_sim.html`](https://emskim0910.github.io/mosaic-viewer/nozzle_sim.html). |
 
@@ -21,16 +19,10 @@ of any kind and runs from `file://`.
 
 ## Page structure — `index.html`
 
-- **Hero** — full-viewport CAD viewer. Drag to rotate, scroll to zoom, plus explode, auto-spin and
-  reset controls. The left panel carries Overview / Specs / Roadmap tabs for the thruster itself.
-- **About** — the program, its funding, and its advisors.
-- **Capabilities** — design and structural analysis, fluids and thermodynamics, manufacturing and
-  materials, systems and test. Each entry maps to actual MOSAIC work rather than a generic list.
-- **Work** — MOSAIC (links back up into the 3D viewer and its spec tabs) and the nozzle simulator.
-- **Contact** — email and GitHub.
-
-The viewer chrome retires itself once you scroll past the hero, and the canvas releases pointer
-events so the page scrolls normally over it.
+- Full-viewport CAD viewer. Drag to rotate, scroll to zoom, plus explode, auto-spin and reset
+  controls. The left card carries Overview / Specs / Roadmap tabs; the right panel lists the parts
+  and links the STEP download.
+- Top bar links to the nozzle simulator, the STEP file and this repository.
 
 ## Nozzle simulation — `nozzle_sim.html`
 
