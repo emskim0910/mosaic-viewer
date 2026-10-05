@@ -19,8 +19,9 @@ of any kind and runs from `file://`.
 
 ## Page structure — `index.html`
 
-- Full-viewport CAD viewer. Drag to rotate, scroll to zoom, plus explode, auto-spin and reset
-  controls. The left card carries Overview / Specs / Roadmap tabs; the right panel lists the parts
+- Full-viewport CAD viewer. Drag to rotate, scroll to zoom, plus explode, section cut, auto-spin
+  and reset controls. The section cut clips every part on the same model plane (stencil-capped, so
+  walls and webs read as solid) and follows the parts as they explode; `C` toggles it. The left card carries Overview / Specs / Roadmap tabs; the right panel lists the parts
   and links the STEP download.
 - Top bar links to the nozzle simulator, the STEP file and this repository.
 
