@@ -760,12 +760,12 @@ const PARTS = [
 // ---------- Renderer ----------
 const app = document.getElementById('app');
 // Memory budget: the drawing buffer is the dominant cost of this page, far above the
-// geometry (~163k triangles, a few MB). 4x MSAA costs ~40 bytes per pixel (multisampled
-// colour + depth/stencil, resolve, swap copy) against ~12 without, so MSAA is kept only
-// where pixels are coarse enough to need it, and the pixel ratio is capped so the
-// buffers stay inside FRAMEBUFFER_BUDGET_MB at any window size.
-const FRAMEBUFFER_BUDGET_MB = 80;
-const MSAA = window.devicePixelRatio < 2;
+// geometry (~163k triangles, tens of MB). 4x MSAA costs ~40 bytes per pixel (multisampled
+// colour + depth/stencil, resolve, swap copy). The thin walls, webs and ribs need it, so it
+// stays on and the pixel ratio is capped so the buffers fit FRAMEBUFFER_BUDGET_MB at any
+// window size. On a 2x display that lands near 1.5x, which with MSAA is cleaner than 2x without.
+const FRAMEBUFFER_BUDGET_MB = 96;
+const MSAA = true;   // thin walls and ribs alias badly without it, at any pixel density
 const BYTES_PER_PIXEL = MSAA ? 40 : 12;
 function budgetPixelRatio() {
   const maxPixels = FRAMEBUFFER_BUDGET_MB * 1048576 / BYTES_PER_PIXEL;
@@ -852,6 +852,8 @@ let   loaded    = 0;
 // Every part is clipped by its own plane, so the cut stays on the same plane of the model
 // while the parts are exploded. Two stencil passes per part cap the cut, so wall, rib and
 // web thickness read as solid metal instead of hollow shells.
+const CREASE_DEG = 32;
+const CUT_TINT = 0.45;                             // how far the cut face is lightened toward white
 const CUT_NORMAL = new THREE.Vector3(0, 0, -1);   // keeps z <= cut, opening the +Z side
 const CUT_POS = 0;                                 // the cut is fixed on the model centreline
 const SECTION_EXPLODE = 0.45;                      // fraction of each part's full explode travel in the section view
@@ -875,8 +877,9 @@ function addSection(mesh, geo, part, i) {
   });
   stencil.visible = false;
   mesh.add(stencil);
-  const cap = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshStandardMaterial({
-    color: new THREE.Color(part.color), metalness: 0.35, roughness: 0.55, side: THREE.DoubleSide,
+  // Cut faces are unlit and a lighter tint of the part, the way a CAD section fills cut metal.
+  const cap = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshBasicMaterial({
+    color: new THREE.Color(part.color).lerp(new THREE.Color(0xffffff), CUT_TINT), side: THREE.DoubleSide,
     stencilWrite: true, stencilRef: 0, stencilFunc: THREE.NotEqualStencilFunc,
     stencilFail: THREE.ReplaceStencilOp, stencilZFail: THREE.ReplaceStencilOp, stencilZPass: THREE.ReplaceStencilOp,
   }));
@@ -924,8 +927,10 @@ function makeMaterial({ color, metalness = 0.75, roughness = 0.22, clearcoat = 0
     await new Promise(r => setTimeout(r, 0)); // yield so progress bar repaints
     try {
       let geo = stlLoader.parse(await buffers[i]);
-      geo = BufferGeometryUtils.mergeVertices(geo, 1e-4);
-      geo.computeVertexNormals();
+      // Crease-angle normals: faces meeting at more than CREASE_DEG keep a hard edge, so walls,
+      // webs and ribs shade flat and only the fillets and bores are smoothed.
+      geo.deleteAttribute('normal');
+      geo = BufferGeometryUtils.toCreasedNormals(geo, CREASE_DEG * Math.PI / 180);
       geo.computeBoundingBox();
       const mesh = new THREE.Mesh(geo, makeMaterial(part));
       mesh.castShadow = true; mesh.receiveShadow = true;
@@ -993,6 +998,7 @@ function makeMaterial({ color, metalness = 0.75, roughness = 0.22, clearcoat = 0
 
   loaderEl.classList.add('hidden');
   setTimeout(() => loaderEl.classList.add('gone'), 700);
+  setTimeout(() => { governorOn = true; }, 3000);
   }
 })();
 
@@ -1134,13 +1140,15 @@ if (screen.orientation && screen.orientation.lock) {
 const SLOW_FRAME_MS = 24;                  // below about 42 fps
 let qualityScale = 1;
 let lastDraw = 0, slowMs = 0, streak = 0;
+let governorOn = false;                    // armed once loading is over; parsing stalls are not slow frames
 function govern(now) {
+  if (!governorOn) { lastDraw = now; return; }
   const dt = now - lastDraw;
   lastDraw = now;
   if (dt > 250) { slowMs = 0; streak = 0; return; }        // idle gap or hidden tab, not a slow frame
   slowMs = streak ? slowMs * 0.9 + dt * 0.1 : dt;
   streak++;
-  if (streak > 40 && slowMs > SLOW_FRAME_MS && renderer.getPixelRatio() > 1) {
+  if (streak > 120 && slowMs > SLOW_FRAME_MS && renderer.getPixelRatio() > 1) {
     qualityScale *= 0.8;
     renderer.setPixelRatio(Math.max(1, budgetPixelRatio() * qualityScale));
     renderer.setSize(window.innerWidth, window.innerHeight);
