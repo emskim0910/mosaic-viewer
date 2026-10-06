@@ -56,8 +56,6 @@
       linear-gradient(rgba(255,255,255,0.055) 1px, transparent 1px),
       linear-gradient(90deg, rgba(255,255,255,0.055) 1px, transparent 1px);
     background-size: 22px 22px;
-    backdrop-filter: blur(14px) saturate(120%);
-    -webkit-backdrop-filter: blur(14px) saturate(120%);
     border: 1px solid rgba(255, 255, 255, 0.22);
     border-radius: 0px;
     box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 8px 30px rgba(0,0,0,0.45);
@@ -197,8 +195,6 @@
       linear-gradient(rgba(255,255,255,0.055) 1px, transparent 1px),
       linear-gradient(90deg, rgba(255,255,255,0.055) 1px, transparent 1px);
     background-size: 22px 22px;
-    backdrop-filter: blur(14px) saturate(120%);
-    -webkit-backdrop-filter: blur(14px) saturate(120%);
     border: 1px solid rgba(255,255,255,0.22); border-radius: 0px;
     box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 8px 30px rgba(0,0,0,0.45);
     display: flex; flex-direction: column; gap: 12px;
@@ -273,6 +269,7 @@
     z-index: 50; transition: opacity 600ms ease;
   }
   #loader.hidden { opacity: 0; pointer-events: none; }
+  #loader.gone { display: none; }
   .spinner {
     width: 56px; height: 56px; border-radius: 50%;
     border: 3px solid rgba(255,255,255,0.08); border-top-color: var(--accent);
@@ -287,9 +284,7 @@
     position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
     padding: 9px 16px; font-size: 11px; letter-spacing: 0.6px; color: var(--text-dim);
     background-color: rgba(0,0,0,0.96); border: 1px solid rgba(255,255,255,0.22);
-    border-radius: 999px; backdrop-filter: blur(10px) saturate(120%);
-    -webkit-backdrop-filter: blur(10px) saturate(120%);
-    box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 8px 24px rgba(0,0,0,0.45);
+    border-radius: 999px;    box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 8px 24px rgba(0,0,0,0.45);
     pointer-events: none; white-space: nowrap;
   }
   .hint kbd {
@@ -315,10 +310,8 @@
     position: fixed; top: 0; left: 0; right: 0; height: 56px; z-index: 40;
     display: flex; align-items: center; justify-content: space-between;
     padding: 0 20px; gap: 16px;
-    background: rgba(3, 5, 10, 0.72);
+    background: rgba(3, 5, 10, 0.92);
     border-bottom: 1px solid rgba(255,255,255,0.10);
-    backdrop-filter: blur(14px) saturate(120%);
-    -webkit-backdrop-filter: blur(14px) saturate(120%);
     transition: background 240ms ease, border-color 240ms ease;
   }
   .topnav .brand {
@@ -787,6 +780,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = false;   // the light and the parts hold still while the camera orbits; redrawn only when parts move
 app.appendChild(renderer.domElement);
 
 // ---------- Scene ----------
@@ -817,6 +811,9 @@ controls.zoomSpeed = 0.9;
 controls.enablePan = false;
 controls.minDistance = 5;
 controls.maxDistance = 2000;
+let needsRender = true;                   // a frame is drawn only when the camera or the model changed
+function invalidate() { needsRender = true; }
+controls.addEventListener('change', invalidate);
 
 // ---------- Lighting ----------
 const key = new THREE.DirectionalLight(0xffffff, 0.95);
@@ -901,6 +898,8 @@ function updateSection() {
     plane.coplanarPoint(cap.position);
     cap.lookAt(cap.position.clone().sub(plane.normal));
   });
+  renderer.shadowMap.needsUpdate = true;
+  invalidate();
 }
 
 function makeMaterial({ color, metalness = 0.75, roughness = 0.22, clearcoat = 0.75, clearcoatRoughness = 0.2 }) {
@@ -913,14 +912,18 @@ function makeMaterial({ color, metalness = 0.75, roughness = 0.22, clearcoat = 0
 }
 
 (async () => {
+  // All nine meshes download together; they are parsed in order as each arrives.
+  const buffers = PARTS.map(p => fetch(`models/${p.key}.stl`).then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.arrayBuffer();
+  }));
+  buffers.forEach(b => b.catch(() => {}));
   for (let i = 0; i < PARTS.length; i++) {
     const { key, color } = PARTS[i];
     const part = PARTS[i];
     await new Promise(r => setTimeout(r, 0)); // yield so progress bar repaints
     try {
-      const res = await fetch(`models/${key}.stl`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      let geo = stlLoader.parse(await res.arrayBuffer());
+      let geo = stlLoader.parse(await buffers[i]);
       geo = BufferGeometryUtils.mergeVertices(geo, 1e-4);
       geo.computeVertexNormals();
       geo.computeBoundingBox();
@@ -940,7 +943,7 @@ function makeMaterial({ color, metalness = 0.75, roughness = 0.22, clearcoat = 0
     loaderPct.textContent = Math.round(100 * loaded / PARTS.length) + '%';
   }
   {
-  if (!meshes.length) { loaderEl.classList.add('hidden'); return; }
+  if (!meshes.length) { loaderEl.classList.add('hidden', 'gone'); return; }
 
   // Compute overall centroid from all part centers
   const centroid = new THREE.Vector3();
@@ -980,7 +983,16 @@ function makeMaterial({ color, metalness = 0.75, roughness = 0.22, clearcoat = 0
   controls.target.set(0, 0, 0);
   controls.update();
 
+  // Compile and upload both views while the loader still covers the canvas, so the first
+  // switch to the exploded section does not stall on shader compilation.
+  setSection(true);
+  renderer.render(scene, camera);
+  setSection(false);
+  renderer.render(scene, camera);
+  await new Promise(r => setTimeout(r, 0));      // not rAF: a background tab would wait on it forever
+
   loaderEl.classList.add('hidden');
+  setTimeout(() => loaderEl.classList.add('gone'), 700);
   }
 })();
 
@@ -1045,10 +1057,11 @@ window.addEventListener('keydown', e => {
 });
 
 window.addEventListener('resize', () => {
-  renderer.setPixelRatio(budgetPixelRatio());
+  renderer.setPixelRatio(Math.max(1, budgetPixelRatio() * qualityScale));
   renderer.setSize(window.innerWidth, window.innerHeight);
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
+  invalidate();
 });
 
 // ---------- Tabs ----------
@@ -1113,12 +1126,34 @@ if (screen.orientation && screen.orientation.lock) {
 })();
 
 // ---------- Render loop ----------
-const clock = new THREE.Clock();
-function tick() {
-  clock.getDelta();
-  controls.update();
-  renderer.render(scene, camera);
+// ---------- Render loop ----------
+// A frame is drawn only when something changed. While frames are being drawn back to back
+// (spinning or dragging), the governor watches the interval between them: if the GPU cannot
+// hold SLOW_FRAME_MS it lowers the pixel ratio a step, down to 1. It never raises it again
+// within a visit, so the picture does not pump.
+const SLOW_FRAME_MS = 24;                  // below about 42 fps
+let qualityScale = 1;
+let lastDraw = 0, slowMs = 0, streak = 0;
+function govern(now) {
+  const dt = now - lastDraw;
+  lastDraw = now;
+  if (dt > 250) { slowMs = 0; streak = 0; return; }        // idle gap or hidden tab, not a slow frame
+  slowMs = streak ? slowMs * 0.9 + dt * 0.1 : dt;
+  streak++;
+  if (streak > 40 && slowMs > SLOW_FRAME_MS && renderer.getPixelRatio() > 1) {
+    qualityScale *= 0.8;
+    renderer.setPixelRatio(Math.max(1, budgetPixelRatio() * qualityScale));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    streak = 0;
+  }
+}
+function tick(now) {
   requestAnimationFrame(tick);
+  controls.update();                       // fires 'change' while spinning, dragging or damping
+  if (!needsRender) return;
+  needsRender = false;
+  renderer.render(scene, camera);
+  govern(now || performance.now());
 }
 tick();
 </script>
