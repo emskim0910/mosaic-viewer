@@ -386,7 +386,6 @@
   <a class="brand" href="./">MOSAIC&nbsp;Thruster <span class="role">Ethan M. Kim · Brown University</span></a>
   <nav>
     <a href="./nozzle_sim.html">Nozzle sim</a>
-    <a href="./models/MOSAIC_Vessel_Rev5_Isogrid.step">STEP</a>
     <a class="cta" href="https://github.com/emskim0910/mosaic-viewer" target="_blank" rel="noopener noreferrer">GitHub</a>
   </nav>
 </header>
@@ -525,7 +524,6 @@
           <dt>Isogrid</dt><dd>600 triangular pockets <span class="muted">ribs 1.2 × 2.5 mm, 10.2 mm triangles, R1 fillets</span></dd>
           <dt>Proof capability</dt><dd>1,226 psig <span class="muted">FEA; governing peak 104 MPa at 750 psi proof (interconnect hole), allowables 170 / 280 MPa</span></dd>
           <dt>Status</dt><dd>Own FEA complete <span class="muted">SolidWorks validation pending; Rev4 pillow-wall design retired after a 184 MPa junction peak at 800 psi</span></dd>
-          <dt>Model</dt><dd><a href="./models/MOSAIC_Vessel_Rev5_Isogrid.step" style="color:var(--accent);">MOSAIC_Vessel_Rev5_Isogrid.step</a> <span class="muted">33 MB, one solid</span></dd>
         </dl>
       </div>
 
@@ -707,8 +705,7 @@
       </div>
     </div>
     <p style="margin:10px 0 0; font-size:10.5px; line-height:1.5; color:var(--text-dim);">
-      Containment vessel Rev5, one AlSi10Mg print. 613 g, 510 cm³.<br>
-      <a href="./models/MOSAIC_Vessel_Rev5_Isogrid.step" style="color:var(--accent);">Download STEP (33 MB)</a>
+      Containment vessel Rev5, one AlSi10Mg print. 613 g, 510 cm³.
     </p>
   </div>
 </div>
@@ -744,7 +741,7 @@ import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js'
 
 // ---------- Parts (binary STL in models/, fetched at load) ----------
 // Rev5 containment vessel, 2026-10-01: nine named bodies tessellated from
-// MOSAIC_Assembly_Rev5_Isogrid.step. `explode` is the displacement in mm at 100 %.
+// the Rev5 assembly. `explode` is the displacement in mm at 100 %.
 const PARTS = [
   { key: 'floor_cap',            color: 0xbcc8d6, metalness: 0.88, roughness: 0.10, clearcoat: 1.0,  clearcoatRoughness: 0.05, explode: [0, -40, 0] },
   { key: 'roof_cap',             color: 0xbcc8d6, metalness: 0.88, roughness: 0.10, clearcoat: 1.0,  clearcoatRoughness: 0.05, explode: [0,  75, 0] },

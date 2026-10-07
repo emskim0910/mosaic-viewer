@@ -10,7 +10,7 @@ tabs. The personal portfolio lives separately at [emskim0910.github.io](https://
 | File | Contents |
 | --- | --- |
 | `index.html` | The viewer. Interactive Three.js model of the Rev5 vessel (meshes fetched from `models/`), with Overview / Specs / Roadmap cards and explode, auto-spin and reset controls. |
-| `models/` | The Rev5 containment vessel: `MOSAIC_Vessel_Rev5_Isogrid.step` (one solid, 33 MB) and nine binary STL meshes, one per named body, that the viewer loads. |
+| `models/` | The Rev5 containment vessel as nine binary STL display meshes, one per named body, that the viewer loads. The CAD source is not published. |
 | `nozzle_sim.html` | Standalone isentropic nozzle flow simulation, linked from the Work section and served live at [`/nozzle_sim.html`](https://emskim0910.github.io/mosaic-viewer/nozzle_sim.html). |
 
 No build step and no bundler. `index.html` pulls Three.js from a CDN via an import map and fetches
@@ -21,9 +21,8 @@ of any kind and runs from `file://`.
 
 - Full-viewport CAD viewer. Drag to rotate, scroll to zoom, plus explode, section cut, auto-spin
   and reset controls. The section cut clips every part on the same model plane (stencil-capped, so
-  walls and webs read as solid) and follows the parts as they explode; `C` toggles it. The left card carries Overview / Specs / Roadmap tabs; the right panel lists the parts
-  and links the STEP download.
-- Top bar links to the nozzle simulator, the STEP file and this repository.
+  walls and webs read as solid) and follows the parts as they explode; `C` toggles it. The left card carries Overview / Specs / Roadmap tabs; the right panel lists the parts.
+- Top bar links to the nozzle simulator and this repository.
 
 ## Nozzle simulation — `nozzle_sim.html`
 
@@ -58,8 +57,8 @@ Containment vessel Rev5 (2026-10-01): flat 1.5 mm AlSi10Mg skins with an externa
 walls, a 5 × 5 internal web core that ties every wall, and 1.8 mm caps, printed as one body with no
 internal supports. 613 g, 510 cm³, 96 × 86 × 96 mm. Design MEOP 500 psig; the Rev5 FEA puts proof
 capability at 1,226 psig (governing peak 104 MPa at 750 psi, interconnect hole). SolidWorks
-validation of Rev5 is pending. The STEP in `models/` is the print and FEA solid; the STL meshes are
-coarse tessellations for display only.
+validation of Rev5 is pending. The STL meshes in `models/` are coarse tessellations for display only; the
+CAD source is not published.
 
 ## MOSAIC — the project
 
