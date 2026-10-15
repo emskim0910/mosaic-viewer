@@ -1,0 +1,204 @@
+{
+ "units": "mm",
+ "up": "Y",
+ "parts": [
+  {
+   "name": "floor_cap",
+   "file": "models/floor_cap.bin",
+   "segments": 523,
+   "explode": [
+    0,
+    -62,
+    0
+   ],
+   "bbox": [
+    [
+     -48.0,
+     -44.0,
+     -48.0
+    ],
+    [
+     48.0,
+     -41.2,
+     48.0
+    ]
+   ]
+  },
+  {
+   "name": "well_and_port_bosses",
+   "file": "models/well_and_port_bosses.bin",
+   "segments": 828,
+   "explode": [
+    0,
+    -36,
+    0
+   ],
+   "bbox": [
+    [
+     -43.69,
+     -41.2,
+     -34.33
+    ],
+    [
+     42.69,
+     8.2,
+     25.25
+    ]
+   ]
+  },
+  {
+   "name": "skin_walls",
+   "file": "models/skin_walls.bin",
+   "segments": 1912,
+   "explode": [
+    0,
+    0,
+    0
+   ],
+   "bbox": [
+    [
+     -45.5,
+     -41.2,
+     -45.5
+    ],
+    [
+     45.5,
+     41.2,
+     45.5
+    ]
+   ]
+  },
+  {
+   "name": "isogrid_pos_X",
+   "file": "models/isogrid_pos_X.bin",
+   "segments": 6770,
+   "explode": [
+    52,
+    0,
+    0
+   ],
+   "bbox": [
+    [
+     45.5,
+     -41.2,
+     -47.96
+    ],
+    [
+     48.0,
+     41.2,
+     47.96
+    ]
+   ]
+  },
+  {
+   "name": "isogrid_neg_X",
+   "file": "models/isogrid_neg_X.bin",
+   "segments": 6770,
+   "explode": [
+    -52,
+    0,
+    0
+   ],
+   "bbox": [
+    [
+     -48.0,
+     -41.2,
+     -47.96
+    ],
+    [
+     -45.5,
+     41.2,
+     47.96
+    ]
+   ]
+  },
+  {
+   "name": "isogrid_pos_Z",
+   "file": "models/isogrid_pos_Z.bin",
+   "segments": 6768,
+   "explode": [
+    0,
+    0,
+    52
+   ],
+   "bbox": [
+    [
+     -45.5,
+     -41.2,
+     45.5
+    ],
+    [
+     45.5,
+     41.2,
+     48.0
+    ]
+   ]
+  },
+  {
+   "name": "isogrid_neg_Z",
+   "file": "models/isogrid_neg_Z.bin",
+   "segments": 6768,
+   "explode": [
+    0,
+    0,
+    -52
+   ],
+   "bbox": [
+    [
+     -45.5,
+     -41.2,
+     -48.0
+    ],
+    [
+     45.5,
+     41.2,
+     -45.5
+    ]
+   ]
+  },
+  {
+   "name": "web_core",
+   "file": "models/web_core.bin",
+   "segments": 5980,
+   "explode": [
+    0,
+    44,
+    0
+   ],
+   "bbox": [
+    [
+     -44.0,
+     -41.2,
+     -44.0
+    ],
+    [
+     44.0,
+     41.2,
+     44.0
+    ]
+   ]
+  },
+  {
+   "name": "roof_cap",
+   "file": "models/roof_cap.bin",
+   "segments": 781,
+   "explode": [
+    0,
+    92,
+    0
+   ],
+   "bbox": [
+    [
+     -48.0,
+     41.2,
+     -48.0
+    ],
+    [
+     48.0,
+     43.5,
+     48.0
+    ]
+   ]
+  }
+ ]
+}
